@@ -58,6 +58,17 @@ export interface GitStatus {
   untracked: number;
 }
 
+export interface KubectlHostInfo {
+  available: boolean;
+  current_context: string | null;
+  namespace: string | null;
+}
+
+export interface HostToolStatus {
+  ssh_available: boolean;
+  kubectl_available: boolean;
+}
+
 export type AiStateValue =
   | "loading"
   | "working"
@@ -114,6 +125,18 @@ export function getGitStatus(workspace: string): Promise<GitStatus> {
   return invoke("get_git_status", { workspace });
 }
 
+export function getKubectlHostInfo(): Promise<KubectlHostInfo> {
+  return invoke("get_kubectl_host_info");
+}
+
+export function getKubectlContexts(): Promise<string[]> {
+  return invoke("get_kubectl_contexts");
+}
+
+export function getHostToolStatus(): Promise<HostToolStatus> {
+  return invoke("get_host_tool_status");
+}
+
 // ────────── Monitoring ──────────
 
 export function getMonitoringSummary(workspace: string): Promise<MonitoringSummary> {
@@ -140,6 +163,10 @@ export function readFileContent(path: string): Promise<string> {
 
 export function writeFileContent(path: string, content: string): Promise<void> {
   return invoke("write_file_content", { path, content });
+}
+
+export function writeFileContentOverwrite(path: string, content: string): Promise<void> {
+  return invoke("write_file_content_overwrite", { path, content });
 }
 
 export function getFileExt(path: string): Promise<string> {

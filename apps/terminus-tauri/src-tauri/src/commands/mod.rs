@@ -3,6 +3,7 @@ pub mod browser;
 pub mod explorer;
 pub mod files;
 pub mod git;
+pub mod host_tools;
 pub mod monitoring;
 pub mod projects;
 pub mod pty;

@@ -52,6 +52,16 @@ pub fn write_file_content(path: String, content: String) -> Result<(), String> {
     file.write_all(content.as_bytes()).map_err(|e| format!("Cannot write {resolved}: {e}"))
 }
 
+/// Write text content by replacing the file content.
+#[tauri::command]
+pub fn write_file_content_overwrite(path: String, content: String) -> Result<(), String> {
+    let resolved = expand_tilde(&path);
+    if let Some(parent) = Path::new(&resolved).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("Cannot create dirs: {e}"))?;
+    }
+    std::fs::write(&resolved, content).map_err(|e| format!("Cannot write {resolved}: {e}"))
+}
+
 /// Get the extension of a file path for type detection.
 #[tauri::command]
 pub fn get_file_ext(path: String) -> String {

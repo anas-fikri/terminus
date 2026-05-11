@@ -6,6 +6,7 @@ import { ViewerPane, type ViewerAttachment } from "../viewer/ViewerPane";
 import { BrowserPane, type InspectSubmission } from "../browser/BrowserPane";
 import { ProjectsPanel } from "../projects/ProjectsPanel";
 import { GitPanel } from "../git/GitPanel";
+import { ExtensionsPanel, type ExtensionLaunchRequest } from "../extensions/ExtensionsPanel";
 import { getTree, readFileContent, type TreeNode } from "../ipc/bridge";
 import { attachResizeHandle } from "../utils/resize";
 import { trackActivity } from "../status/ActivityMonitor";
@@ -21,6 +22,7 @@ export interface Tab {
   projectPath?: string;  // Track which project this session belongs to
   filePath?: string;
   url?: string;
+  initialCommand?: string;
 }
 
 type PaneInstance =
@@ -37,6 +39,7 @@ export class Shell {
   private tabBar!: TabBar;
   private explorer!: Explorer;
   private gitPanel!: GitPanel;
+  private extensionsPanel!: ExtensionsPanel;
   private projectsPanel!: ProjectsPanel;
   private statusBar!: StatusBar;
   private mainEl!: HTMLElement;
@@ -58,9 +61,11 @@ export class Shell {
               <div class="shell__sidepanel-tabs">
                 <button class="shell__sidepanel-tab shell__sidepanel-tab--active" id="side-tab-explorer">Files</button>
                 <button class="shell__sidepanel-tab" id="side-tab-git">Git</button>
+                <button class="shell__sidepanel-tab" id="side-tab-extensions">Extensions</button>
               </div>
               <div class="shell__sidepanel-body shell__sidepanel-body--active" id="slot-explorer"></div>
               <div class="shell__sidepanel-body" id="slot-git"></div>
+              <div class="shell__sidepanel-body" id="slot-extensions"></div>
             </div>
           </div>
         </div>
@@ -96,6 +101,11 @@ export class Shell {
 
     this.gitPanel = new GitPanel(this.root.querySelector("#slot-git")!);
 
+    this.extensionsPanel = new ExtensionsPanel(
+      this.root.querySelector("#slot-extensions")!,
+      (request) => this.openExtensionSession(request)
+    );
+
     this.statusBar = new StatusBar(this.root.querySelector("#slot-statusbar")!);
 
     // Attach resize handles
@@ -116,21 +126,30 @@ export class Shell {
   private setupSidePanelTabs(): void {
     this.root.querySelector("#side-tab-explorer")?.addEventListener("click", () => this.setSidePanelMode("explorer"));
     this.root.querySelector("#side-tab-git")?.addEventListener("click", () => this.setSidePanelMode("git"));
+    this.root.querySelector("#side-tab-extensions")?.addEventListener("click", () => this.setSidePanelMode("extensions"));
   }
 
-  private setSidePanelMode(mode: "explorer" | "git"): void {
+  private setSidePanelMode(mode: "explorer" | "git" | "extensions"): void {
     const explorerTab = this.root.querySelector<HTMLElement>("#side-tab-explorer");
     const gitTab = this.root.querySelector<HTMLElement>("#side-tab-git");
+    const extensionsTab = this.root.querySelector<HTMLElement>("#side-tab-extensions");
     const explorerBody = this.root.querySelector<HTMLElement>("#slot-explorer");
     const gitBody = this.root.querySelector<HTMLElement>("#slot-git");
+    const extensionsBody = this.root.querySelector<HTMLElement>("#slot-extensions");
 
     explorerTab?.classList.toggle("shell__sidepanel-tab--active", mode === "explorer");
     gitTab?.classList.toggle("shell__sidepanel-tab--active", mode === "git");
+    extensionsTab?.classList.toggle("shell__sidepanel-tab--active", mode === "extensions");
     explorerBody?.classList.toggle("shell__sidepanel-body--active", mode === "explorer");
     gitBody?.classList.toggle("shell__sidepanel-body--active", mode === "git");
+    extensionsBody?.classList.toggle("shell__sidepanel-body--active", mode === "extensions");
 
     if (mode === "git") {
       void this.gitPanel.load();
+    }
+
+    if (mode === "extensions") {
+      this.extensionsPanel.refresh();
     }
   }
 
@@ -179,16 +198,21 @@ export class Shell {
   // ── Tab management ──
 
   newSessionTab(workspace = ".", projectPath?: string): void {
+    this.newSessionTabWithCommand(workspace, projectPath);
+  }
+
+  private newSessionTabWithCommand(workspace = ".", projectPath?: string, labelOverride?: string, initialCommand?: string): void {
     const id = `tab-${Date.now()}`;
-    const label = projectPath 
+    const label = labelOverride ?? (projectPath 
       ? projectPath.split("/").pop() ?? projectPath
-      : "Session";
+      : "Session");
     const tab: Tab = { 
       id, 
       label, 
       workspace, 
       type: "session",
-      projectPath 
+      projectPath,
+      initialCommand 
     };
     this.tabs.push(tab);
     this.activateTab(id);
@@ -275,6 +299,11 @@ export class Shell {
     const active = this.panes.get(id);
     if (active?.type === "session") {
       active.pane.show();
+      const tab = this.tabs.find((t) => t.id === id);
+      if (tab?.initialCommand) {
+        active.pane.runCommand(tab.initialCommand);
+        tab.initialCommand = undefined;
+      }
     }
 
     this.syncTabBar();
@@ -298,6 +327,7 @@ export class Shell {
   openProject(path: string): void {
     this.projectsPanel.setActive(path);
     this.statusBar.setWorkspace(path);
+    this.extensionsPanel.setWorkspace(path);
     trackActivity({
       skill: "project-context",
       tool: "open_project",
@@ -458,6 +488,21 @@ export class Shell {
       return;
     }
     session.pane.attachFileContent(attachment.name, attachment.content, relativePath, attachment.mode);
+  }
+
+  private openExtensionSession(request: ExtensionLaunchRequest): void {
+    const workspace = request.workspace?.trim() || this.activeProjectWorkspace() || ".";
+    this.newSessionTabWithCommand(workspace, undefined, request.label, request.command);
+  }
+
+  private activeProjectWorkspace(): string | undefined {
+    const activeTab = this.tabs.find((tab) => tab.id === this.activeTabId);
+    if (activeTab?.type === "session" && activeTab.workspace) {
+      return activeTab.workspace;
+    }
+
+    const projectSession = [...this.tabs].reverse().find((tab) => tab.type === "session" && tab.projectPath);
+    return projectSession?.workspace;
   }
 
   private getOrActivateSessionPane(): { pane: TerminalPane; workspace: string } | undefined {

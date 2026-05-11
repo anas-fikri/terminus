@@ -52,6 +52,7 @@ export class TerminalPane {
   private resizeObs?: ResizeObserver;
   private started = false;
   private initialFitted = false;
+  private pendingCommands: string[] = [];
 
   constructor(el: HTMLElement) {
     this.el = el;
@@ -225,6 +226,10 @@ export class TerminalPane {
 
       await ptySpawn(this.sessionId, this.workspace === "." ? undefined : this.workspace);
       this.started = true;
+
+      for (const command of this.pendingCommands.splice(0)) {
+        ptyWrite(this.sessionId, `${command}\r`).catch(() => {});
+      }
       
       // Fit after spawn
       try { this.fitAddon.fit(); } catch {}
@@ -239,6 +244,16 @@ export class TerminalPane {
     if (this.started) {
       ptyWrite(this.sessionId, `cd ${JSON.stringify(workspace)}\r`).catch(() => {});
     }
+  }
+
+  runCommand(command: string): void {
+    if (!command.trim()) return;
+    if (!this.started) {
+      this.pendingCommands.push(command);
+      return;
+    }
+    ptyWrite(this.sessionId, `${command}\r`).catch(() => {});
+    this.term.focus();
   }
 
   private formatAttachToken(path: string): string {

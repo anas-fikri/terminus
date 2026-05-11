@@ -19,12 +19,17 @@ pub fn run() {
             // Files
             commands::files::read_file_content,
             commands::files::write_file_content,
+            commands::files::write_file_content_overwrite,
             commands::files::get_file_ext,
             // Browser
             commands::browser::fetch_remote_html,
             // Git
             commands::git::run_git_op,
             commands::git::get_git_status,
+            // Host tools
+            commands::host_tools::get_kubectl_host_info,
+            commands::host_tools::get_kubectl_contexts,
+            commands::host_tools::get_host_tool_status,
             // Monitoring
             commands::monitoring::get_monitoring_summary,
             // PTY terminal
