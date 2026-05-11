@@ -8,7 +8,8 @@ export function attachResizeHandle(
   prev: HTMLElement,
   next: HTMLElement,
   direction: "horizontal" | "vertical",
-  storageKey?: string
+  storageKey?: string,
+  persistTarget: "prev" | "next" = "prev"
 ): HTMLElement {
   const handle = document.createElement("div");
   handle.className = `resize-handle resize-handle--${direction}`;
@@ -39,19 +40,33 @@ export function attachResizeHandle(
     const newNext = startPrevSize + startNextSize - newPrev;
 
     if (direction === "horizontal") {
-      prev.style.width = `${newPrev}px`;
-      next.style.width = `${newNext}px`;
-      prev.style.flex = "none";
-      next.style.flex = "none";
+      if (persistTarget === "next") {
+        next.style.width = `${newNext}px`;
+        next.style.flex = "none";
+        prev.style.flex = "1";
+        prev.style.width = "";
+      } else {
+        prev.style.width = `${newPrev}px`;
+        next.style.width = `${newNext}px`;
+        prev.style.flex = "none";
+        next.style.flex = "none";
+      }
     } else {
-      prev.style.height = `${newPrev}px`;
-      next.style.height = `${newNext}px`;
-      prev.style.flex = "none";
-      next.style.flex = "none";
+      if (persistTarget === "next") {
+        next.style.height = `${newNext}px`;
+        next.style.flex = "none";
+        prev.style.flex = "1";
+        prev.style.height = "";
+      } else {
+        prev.style.height = `${newPrev}px`;
+        next.style.height = `${newNext}px`;
+        prev.style.flex = "none";
+        next.style.flex = "none";
+      }
     }
 
     if (storageKey) {
-      localStorage.setItem(storageKey, String(newPrev));
+      localStorage.setItem(storageKey, String(persistTarget === "prev" ? newPrev : newNext));
     }
   });
 
@@ -69,11 +84,26 @@ export function attachResizeHandle(
       const size = Number(saved);
       if (size > 0) {
         if (direction === "horizontal") {
-          prev.style.width = `${size}px`;
-          prev.style.flex = "none";
+          if (persistTarget === "prev") {
+            prev.style.width = `${size}px`;
+            prev.style.flex = "none";
+          } else {
+            next.style.width = `${size}px`;
+            next.style.flex = "none";
+            // Keep center pane elastic to avoid right-side blank gaps.
+            prev.style.flex = "1";
+            prev.style.width = "";
+          }
         } else {
-          prev.style.height = `${size}px`;
-          prev.style.flex = "none";
+          if (persistTarget === "prev") {
+            prev.style.height = `${size}px`;
+            prev.style.flex = "none";
+          } else {
+            next.style.height = `${size}px`;
+            next.style.flex = "none";
+            prev.style.flex = "1";
+            prev.style.height = "";
+          }
         }
       }
     }

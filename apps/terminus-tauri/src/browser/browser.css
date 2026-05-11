@@ -19,10 +19,30 @@
   flex-direction: column;
   gap: 8px;
 }
+.browser__inspect-tooltip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .browser__inspect-tooltip-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-accent);
+}
+.browser__inspect-tooltip-close {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
+  font-size: 11px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+.browser__inspect-tooltip-close:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
 }
 .browser__inspect-tooltip-input {
   width: 100%;

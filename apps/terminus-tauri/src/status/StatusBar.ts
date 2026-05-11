@@ -2,6 +2,8 @@ import { getMonitoringSummary, getSystemStats, getGitStatus } from "../ipc/bridg
 import { getLastActivity, onActivityChanged, type ActivitySnapshot } from "./ActivityMonitor";
 import "./status.css";
 
+const SYSTEM_STATS_INTERVAL_MS = 1000;
+
 export class StatusBar {
   private el: HTMLElement;
   private updateInterval?: number;
@@ -9,6 +11,7 @@ export class StatusBar {
   private gitInterval?: number;
   private monitorInterval?: number;
   private unsubscribeActivity?: () => void;
+  private isUpdatingSystemStats = false;
 
   constructor(el: HTMLElement) {
     this.el = el;
@@ -23,9 +26,9 @@ export class StatusBar {
     this.renderActivity(getLastActivity());
     this.unsubscribeActivity = onActivityChanged((snapshot) => this.renderActivity(snapshot));
     
-    // Start updating system stats every 2 seconds
+    // Keep CPU/RAM close to real-time without overloading render loop.
     this.updateSystemStats();
-    this.updateInterval = window.setInterval(() => this.updateSystemStats(), 2000);
+    this.updateInterval = window.setInterval(() => this.updateSystemStats(), SYSTEM_STATS_INTERVAL_MS);
     
     // Update git status every 3 seconds
     this.updateGitStatus();
@@ -37,6 +40,8 @@ export class StatusBar {
   }
 
   private async updateSystemStats(): Promise<void> {
+    if (this.isUpdatingSystemStats) return;
+    this.isUpdatingSystemStats = true;
     try {
       const stats = await getSystemStats();
       const right = this.el.querySelector("#status-right");
@@ -72,6 +77,8 @@ export class StatusBar {
       }
     } catch {
       // Silently skip on error
+    } finally {
+      this.isUpdatingSystemStats = false;
     }
   }
 

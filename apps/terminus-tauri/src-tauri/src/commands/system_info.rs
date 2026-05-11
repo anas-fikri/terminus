@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::sync::{Mutex, OnceLock};
 use sysinfo::System;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -12,20 +13,34 @@ pub struct SystemStats {
 
 #[tauri::command]
 pub fn get_system_stats() -> Result<SystemStats, String> {
-    let mut sys = System::new_all();
-    sys.refresh_all();
+    let sys = SYSTEM.get_or_init(|| {
+        let mut initial = System::new_all();
+        initial.refresh_all();
+        Mutex::new(initial)
+    });
+
+    let mut sys = sys
+        .lock()
+        .map_err(|_| "failed to lock system monitor state".to_string())?;
+
+    // Refresh only what we need for low-latency polling.
+    sys.refresh_cpu_usage();
+    sys.refresh_memory();
 
     let total_memory = sys.total_memory() as f32 / (1024.0 * 1024.0 * 1024.0); // Convert to GB
     let used_memory = sys.used_memory() as f32 / (1024.0 * 1024.0 * 1024.0);
     let memory_percent = (used_memory / total_memory * 100.0).min(100.0);
 
     // Get CPU usage (average across all cores)
-    let cpu_percent = sys
-        .cpus()
-        .iter()
-        .map(|cpu| cpu.cpu_usage())
-        .sum::<f32>()
-        / sys.cpus().len() as f32;
+    let cpu_percent = if sys.cpus().is_empty() {
+        0.0
+    } else {
+        sys.cpus()
+            .iter()
+            .map(|cpu| cpu.cpu_usage())
+            .sum::<f32>()
+            / sys.cpus().len() as f32
+    };
 
     // GPU detection would require platform-specific code
     // For now, return None
@@ -39,3 +54,5 @@ pub fn get_system_stats() -> Result<SystemStats, String> {
         gpu_percent,
     })
 }
+
+static SYSTEM: OnceLock<Mutex<System>> = OnceLock::new();

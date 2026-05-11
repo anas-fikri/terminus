@@ -10,10 +10,10 @@ pub struct TreeNode {
     pub children: Option<Vec<TreeNode>>,
 }
 
-/// Return a shallow file tree for the given workspace root (depth 2).
+/// Return a file tree for the given workspace root (depth 6).
 #[tauri::command]
 pub fn get_tree(workspace: String) -> Result<TreeNode, String> {
-    build_tree(Path::new(&workspace), 0, 2).map_err(|e| e.to_string())
+    build_tree(Path::new(&workspace), 0, 6).map_err(|e| e.to_string())
 }
 
 fn build_tree(path: &Path, depth: usize, max_depth: usize) -> anyhow::Result<TreeNode> {

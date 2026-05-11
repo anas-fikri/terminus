@@ -1,0 +1,90 @@
+.gitpanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg-surface);
+}
+
+.gitpanel__summary {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.gitpanel__meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.gitpanel__list {
+  margin: 0;
+  padding: 8px 10px;
+  list-style: none;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.gitpanel__list--compact {
+  flex: 0;
+  max-height: 120px;
+  border-top: 1px solid var(--color-border);
+}
+
+.gitpanel__section-title {
+  padding: 6px 10px 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.gitpanel__item {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-primary);
+  padding: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gitpanel__item--clean {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.gitpanel__footer {
+  border-top: 1px solid var(--color-border);
+  padding: 8px;
+}
+
+.gitpanel__refresh {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  font-size: 11px;
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.gitpanel__refresh:hover {
+  border-color: var(--color-accent);
+}
+
+.gitpanel__loading,
+.gitpanel__empty,
+.gitpanel__error {
+  padding: 12px;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.gitpanel__error {
+  color: var(--color-error);
+}

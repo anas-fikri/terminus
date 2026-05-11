@@ -60,6 +60,51 @@
   transition: width 0.2s ease, opacity 0.2s ease;
 }
 
+.shell__sidepanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.shell__sidepanel-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+}
+
+.shell__sidepanel-tab {
+  flex: 1;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.shell__sidepanel-tab--active {
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.shell__sidepanel-body {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell__sidepanel-body--active {
+  display: flex;
+  flex-direction: column;
+}
+
 .shell__tree--hidden {
   width: 0;
   opacity: 0;

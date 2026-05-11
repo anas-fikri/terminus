@@ -2,6 +2,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ptySpawn, ptyWrite, ptyResize, ptyKill, onPtyData, onPtyExit } from "../ipc/bridge";
+import type { InspectSubmission } from "../browser/BrowserPane";
 import "@xterm/xterm/css/xterm.css";
 import "./terminal.css";
 
@@ -260,6 +261,15 @@ export class TerminalPane {
     return `${header}\n\n${safe}\n`;
   }
 
+  private formatInlineAttachText(content: string, sourcePath?: string): string {
+    const maxChars = 4000;
+    const clipped = content.length > maxChars;
+    const safe = clipped ? `${content.slice(0, maxChars)}\n\n[truncated ${content.length - maxChars} chars]` : content;
+    const compact = safe.replace(/\r?\n/g, "\\n");
+    const prefix = sourcePath ? `[ATTACH:SELECTION ${sourcePath}]` : "[ATTACH:SELECTION]";
+    return `${prefix} ${JSON.stringify(compact)} `;
+  }
+
   attachFile(path: string): void {
     if (this.started) {
       ptyWrite(this.sessionId, this.formatAttachToken(path)).catch(() => {});
@@ -273,6 +283,28 @@ export class TerminalPane {
       ptyWrite(this.sessionId, payload).catch(() => {});
       this.term.focus();
     }
+  }
+
+  attachInlineSelection(content: string, sourcePath?: string): void {
+    if (this.started) {
+      const payload = this.formatInlineAttachText(content, sourcePath);
+      ptyWrite(this.sessionId, payload).catch(() => {});
+      this.term.focus();
+    }
+  }
+
+  executeInspectSubmission(submission: InspectSubmission): void {
+    if (!this.started) return;
+    const cliPayload = JSON.stringify({
+      prompt: submission.prompt,
+      url: submission.url,
+      inspectPath: submission.inspectPath,
+      element: submission.element,
+    });
+    // Send one-line payload and press Enter so active CLI can execute immediately.
+    const command = `INSPECT_TASK ${cliPayload}\r`;
+    ptyWrite(this.sessionId, command).catch(() => {});
+    this.term.focus();
   }
 
   injectInspectContext(_html: string, _url: string, inspectPath = "~/.terminus/inspect.md"): void {

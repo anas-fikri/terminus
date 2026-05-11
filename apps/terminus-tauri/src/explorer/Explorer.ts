@@ -52,20 +52,24 @@ export class Explorer {
       const li = document.createElement("li");
       li.className = `explorer__item${node.is_dir ? " explorer__item--dir" : ""}`;
 
+      const row = document.createElement("div");
+      row.className = `explorer__row${node.is_dir ? " explorer__row--dir" : ""}`;
+
       const fileIcon = node.is_dir ? icon("folder", 11) : icon("file", 11);
       const chevron = node.is_dir ? `<span class="explorer__chevron">${icon("chevron-right", 9)}</span>` : `<span class="explorer__chevron"></span>`;
-      li.innerHTML = `${chevron}<span class="explorer__icon">${fileIcon}</span><span class="explorer__name">${node.name}</span>`;
+      row.innerHTML = `${chevron}<span class="explorer__icon">${fileIcon}</span><span class="explorer__name">${node.name}</span>`;
+      li.appendChild(row);
 
       if (node.is_dir && node.children) {
         const sub = this.buildList(node.children);
         sub.style.display = "none";
-        li.addEventListener("click", (e) => {
+        row.addEventListener("click", (e) => {
           e.stopPropagation();
           const shown = sub.style.display !== "none";
           sub.style.display = shown ? "none" : "block";
-          const chev = li.querySelector(".explorer__chevron")!;
+          const chev = row.querySelector(".explorer__chevron")!;
           chev.innerHTML = shown ? icon("chevron-right", 9) : icon("chevron-down", 9);
-          const ficon = li.querySelector(".explorer__icon")!;
+          const ficon = row.querySelector(".explorer__icon")!;
           ficon.innerHTML = shown ? icon("folder", 11) : icon("folder-open", 11);
         });
         li.appendChild(sub);
@@ -96,10 +100,10 @@ export class Explorer {
 
         actions.appendChild(previewBtn);
         actions.appendChild(attachBtn);
-        li.appendChild(actions);
+        row.appendChild(actions);
 
         // Single click = open preview
-        li.addEventListener("click", (e) => {
+        row.addEventListener("click", (e) => {
           e.stopPropagation();
           this.onFileOpen(node.path);
         });

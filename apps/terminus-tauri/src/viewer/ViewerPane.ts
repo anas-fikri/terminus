@@ -1,17 +1,30 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import mermaid from "mermaid";
+import * as pdfjsLib from "pdfjs-dist";
 import { readFileContent } from "../ipc/bridge";
 import "./viewer.css";
 
-mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: "dark",
+  securityLevel: "loose",
+  // Font rendering optimization for diagram text visibility
+  fontFamily: "system-ui, -apple-system, sans-serif",
+  // Ensure text is rendered properly in various diagram types
+  flowchart: { htmlLabels: false },
+  er: { useMaxWidth: true },
+});
 
 export type ViewerSource =
   | { kind: "file"; path: string }
   | { kind: "content"; content: string; name: string };
 
 export interface ViewerAttachment {
-  mode: "read" | "source";
+  mode: "read" | "source" | "selection";
   name: string;
   path?: string;
   content: string;
@@ -139,7 +152,9 @@ export class ViewerPane {
   private async renderContent(content: string, name: string): Promise<void> {
     const e = ext(name);
 
-    if (e === "md" || e === "markdown") {
+    if (e === "pdf") {
+      await this.renderPdf(content, name);
+    } else if (e === "md" || e === "markdown") {
       await this.renderMarkdown(content);
     } else if (e === "mmd" || e === "mermaid") {
       await this.renderMermaid(content);
@@ -180,7 +195,7 @@ export class ViewerPane {
       if (target) {
         try {
           const { svg } = await mermaid.render(`mmd-svg-${id}`, code);
-          target.innerHTML = DOMPurify.sanitize(svg);
+          target.innerHTML = this.sanitizeSvg(svg);
         } catch (err) {
           target.innerHTML = `<pre class="viewer__mermaid-error">Mermaid error:\n${escHtml(String(err))}</pre>`;
         }
@@ -192,9 +207,147 @@ export class ViewerPane {
     const id = `mmd-standalone-${Date.now()}`;
     try {
       const { svg } = await mermaid.render(id, code.trim());
-      this.contentEl.innerHTML = `<div class="viewer__mermaid-full">${DOMPurify.sanitize(svg)}</div>`;
+      this.contentEl.innerHTML = `<div class="viewer__mermaid-full">${this.sanitizeSvg(svg)}</div>`;
     } catch (err) {
       this.contentEl.innerHTML = `<pre class="viewer__error">Mermaid error:\n${escHtml(String(err))}</pre>`;
+    }
+  }
+
+  private async renderPdf(content: string, _name: string): Promise<void> {
+    try {
+      // Convert base64 or binary string to Uint8Array for PDF.js
+      let pdfData: Uint8Array;
+      if (content.startsWith("%PDF")) {
+        // Binary PDF content
+        pdfData = new Uint8Array(content.length);
+        for (let i = 0; i < content.length; i++) {
+          pdfData[i] = content.charCodeAt(i);
+        }
+      } else {
+        // Try as base64
+        const bstr = atob(content);
+        pdfData = new Uint8Array(bstr.length);
+        for (let i = 0; i < bstr.length; i++) {
+          pdfData[i] = bstr.charCodeAt(i);
+        }
+      }
+
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      const totalPages = pdf.numPages;
+
+      // Create PDF viewer container with controls
+      this.contentEl.innerHTML = `
+        <div class="viewer__pdf-wrap">
+          <div class="viewer__pdf-toolbar">
+            <button class="viewer__pdf-btn" id="pdf-prev" title="Previous page">◀</button>
+            <span class="viewer__pdf-info">
+              Page <input class="viewer__pdf-input" id="pdf-page-num" type="number" min="1" max="${totalPages}" value="1" /> of ${totalPages}
+            </span>
+            <button class="viewer__pdf-btn" id="pdf-next" title="Next page">▶</button>
+            <span class="viewer__pdf-zoom">
+              <button class="viewer__pdf-btn" id="pdf-zoom-out" title="Zoom out">−</button>
+              <select class="viewer__pdf-select" id="pdf-zoom-level">
+                <option value="50">50%</option>
+                <option value="75">75%</option>
+                <option value="100" selected>100%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+                <option value="200">200%</option>
+              </select>
+              <button class="viewer__pdf-btn" id="pdf-zoom-in" title="Zoom in">+</button>
+            </span>
+          </div>
+          <div class="viewer__pdf-canvas-wrap">
+            <canvas id="pdf-canvas" class="viewer__pdf-canvas"></canvas>
+          </div>
+        </div>
+      `;
+
+      const canvas = this.contentEl.querySelector<HTMLCanvasElement>("#pdf-canvas")!;
+      const pageNumInput = this.contentEl.querySelector<HTMLInputElement>("#pdf-page-num")!;
+      const zoomLevel = this.contentEl.querySelector<HTMLSelectElement>("#pdf-zoom-level")!;
+      let currentPage = 1;
+      let scale = 1;
+
+      const renderPage = async (pageNum: number): Promise<void> => {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: scale });
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: viewport,
+          canvas: canvas,
+        };
+        await (page.render(renderContext) as any).promise;
+
+        currentPage = pageNum;
+        pageNumInput.value = String(pageNum);
+      };
+
+      // Initial render
+      await renderPage(1);
+
+      // Event listeners
+      this.contentEl.querySelector("#pdf-prev")!.addEventListener("click", async () => {
+        if (currentPage > 1) {
+          await renderPage(currentPage - 1);
+        }
+      });
+
+      this.contentEl.querySelector("#pdf-next")!.addEventListener("click", async () => {
+        if (currentPage < totalPages) {
+          await renderPage(currentPage + 1);
+        }
+      });
+
+      pageNumInput.addEventListener("change", async () => {
+        const pageNum = Math.max(1, Math.min(totalPages, parseInt(pageNumInput.value) || 1));
+        await renderPage(pageNum);
+      });
+
+      zoomLevel.addEventListener("change", async () => {
+        scale = parseInt(zoomLevel.value) / 100;
+        await renderPage(currentPage);
+      });
+
+      this.contentEl.querySelector("#pdf-zoom-out")!.addEventListener("click", async () => {
+        const levels = [50, 75, 100, 125, 150, 200];
+        const currentIdx = levels.indexOf(parseInt(zoomLevel.value));
+        if (currentIdx > 0) {
+          zoomLevel.value = String(levels[currentIdx - 1]);
+          scale = levels[currentIdx - 1] / 100;
+          await renderPage(currentPage);
+        }
+      });
+
+      this.contentEl.querySelector("#pdf-zoom-in")!.addEventListener("click", async () => {
+        const levels = [50, 75, 100, 125, 150, 200];
+        const currentIdx = levels.indexOf(parseInt(zoomLevel.value));
+        if (currentIdx < levels.length - 1) {
+          zoomLevel.value = String(levels[currentIdx + 1]);
+          scale = levels[currentIdx + 1] / 100;
+          await renderPage(currentPage);
+        }
+      });
+
+      // Keyboard navigation
+      const keyHandler = async (e: KeyboardEvent) => {
+        if (e.key === "ArrowLeft" && currentPage > 1) {
+          await renderPage(currentPage - 1);
+        } else if (e.key === "ArrowRight" && currentPage < totalPages) {
+          await renderPage(currentPage + 1);
+        }
+      };
+      document.addEventListener("keydown", keyHandler);
+
+    } catch (err) {
+      this.contentEl.innerHTML = `<div class="viewer__error">PDF error: ${escHtml(String(err))}</div>`;
     }
   }
 
@@ -222,6 +375,20 @@ export class ViewerPane {
   private renderSvg(svg: string): void {
     const clean = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } });
     this.contentEl.innerHTML = `<div class="viewer__svg-wrap">${clean}</div>`;
+  }
+
+  /** Sanitize SVG for Mermaid diagrams while preserving style tags and text rendering */
+  private sanitizeSvg(svg: string): string {
+    // First pass: Allow SVG with style tags preserved
+    const sanitized = DOMPurify.sanitize(svg, {
+      USE_PROFILES: { svg: true },
+      ADD_TAGS: ["style", "tspan", "defs", "marker", "g", "text", "path", "line", "polyline", "polygon", "rect", "circle", "ellipse", "foreignObject"],
+      ADD_ATTR: ["marker-width", "marker-height", "marker-end", "marker-start", "marker-mid", "style", "class", "id", "viewBox", "preserveAspectRatio"],
+      KEEP_CONTENT: true,
+      FORCE_BODY: true,
+      RETURN_DOM: false,
+    });
+    return sanitized;
   }
 
   private renderHtml(html: string): void {
@@ -302,7 +469,7 @@ export class ViewerPane {
     }
 
     this.onAttach({
-      mode: "read",
+      mode: "selection",
       name: `${this.currentName() || "viewer"} [selection]`,
       path: this.source?.kind === "file" ? this.source.path : undefined,
       content: selected,

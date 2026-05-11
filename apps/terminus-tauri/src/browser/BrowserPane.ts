@@ -2,6 +2,20 @@ import { fetchRemoteHtml, openExternal, readFileContent, runAsk, writeFileConten
 import { trackActivity } from "../status/ActivityMonitor";
 import "./browser.css";
 
+export interface InspectSubmission {
+  info: string;
+  url: string;
+  inspectPath: string;
+  prompt: string;
+  element: {
+    tag: string;
+    selector: string;
+    attributes: Record<string, string>;
+    computedStyles: Record<string, string>;
+    html: string;
+  };
+}
+
 export class BrowserPane {
   private el: HTMLElement;
   private iframe!: HTMLIFrameElement;
@@ -11,13 +25,13 @@ export class BrowserPane {
   private historyIdx = -1;
   private inspecting = false;
   private inspectMode: "single" | "multi" = "single";
-  private onInspect?: (html: string, url: string, inspectPath: string) => void;
+  private onInspect?: (submission: InspectSubmission) => void;
   private projectPath?: string;
   private aiPanelOpen = false;
   private aiOutputEl!: HTMLElement;
   private aiInputEl!: HTMLTextAreaElement;
 
-  setOnInspect(cb: (html: string, url: string, inspectPath: string) => void): void {
+  setOnInspect(cb: (submission: InspectSubmission) => void): void {
     this.onInspect = cb;
   }
 
@@ -515,9 +529,12 @@ export class BrowserPane {
     overlay.className = "browser__inspect-tooltip";
     overlay.innerHTML = `
       <div class="browser__inspect-tooltip-inner">
-        <div class="browser__inspect-tooltip-title">AI Command for &lt;${target.tagName.toLowerCase()}&gt;</div>
+        <div class="browser__inspect-tooltip-head">
+          <div class="browser__inspect-tooltip-title">AI Command for &lt;${target.tagName.toLowerCase()}&gt;</div>
+          <button class="browser__inspect-tooltip-close" title="Close">✕</button>
+        </div>
         <textarea class="browser__inspect-tooltip-input" rows="2" placeholder="Contoh: Jelaskan fungsi tombol ini"></textarea>
-        <button class="browser__inspect-tooltip-send">Send to AI</button>
+        <button class="browser__inspect-tooltip-send">Send to CLI</button>
         <div class="browser__inspect-tooltip-output"></div>
       </div>
     `;
@@ -536,6 +553,7 @@ export class BrowserPane {
     input.focus();
     // Send handler
     const sendBtn = overlay.querySelector<HTMLButtonElement>(".browser__inspect-tooltip-send")!;
+    const closeBtn = overlay.querySelector<HTMLButtonElement>(".browser__inspect-tooltip-close")!;
     const output = overlay.querySelector<HTMLElement>(".browser__inspect-tooltip-output")!;
     const cleanup = () => {
       try { (target as HTMLElement).style.outline = ""; } catch {}
@@ -546,24 +564,28 @@ export class BrowserPane {
       if (!overlay.contains(evt.target as Node)) cleanup();
     };
     parentDoc.addEventListener("mousedown", outsideClick);
+    closeBtn.onclick = () => cleanup();
     sendBtn.onclick = async () => {
       const prompt = input.value.trim();
       if (!prompt) return;
       sendBtn.disabled = true;
-      output.textContent = "AI thinking...";
+      output.textContent = "Sending to CLI...";
       // Compose context
+      const payload = this.buildElementPayload(target);
       const context = this.buildElementInfo(target);
-      this.deliverInspect(context);
-      const fullPrompt = `Element context:\n${context}\n\nUser request:\n${prompt}\n\nJawab singkat, bahasa Indonesia.`;
+      const inspectPath = this.deliverInspect(context);
+      const submission: InspectSubmission = {
+        info: context,
+        url: this.currentUrl,
+        inspectPath,
+        prompt,
+        element: payload,
+      };
       try {
-        const result = await runAsk({
-          workspace: this.projectPath ?? ".",
-          prompt: fullPrompt,
-          use_cache: true,
-        });
-        output.textContent = result.content || "No response from AI.";
+        this.onInspect?.(submission);
+        output.textContent = "Sent to CLI.";
       } catch (err) {
-        output.textContent = `AI error: ${String(err)}`;
+        output.textContent = `CLI send error: ${String(err)}`;
       }
       sendBtn.disabled = false;
     };
@@ -578,8 +600,8 @@ export class BrowserPane {
     (parentDoc as any)._terminusInspectTooltip = undefined;
   }
 
-  /** Save inspect data to file and notify via onInspect callback */
-  private deliverInspect(info: string): void {
+  /** Save inspect data to file and return path */
+  private deliverInspect(info: string): string {
     const inspectPath = this.getInspectPath();
     const ts = new Date().toISOString();
     const fileContent = `\n---\n# Inspect - ${ts}\nProject: ${this.projectPath ?? "(none)"}\nURL: ${this.currentUrl}\n\n${info}\n`;
@@ -592,9 +614,44 @@ export class BrowserPane {
       detail: `Inspect appended (${this.inspectMode})`,
       workspace: this.projectPath ?? ".",
     });
-    if (this.onInspect) {
-      this.onInspect(info, this.currentUrl, inspectPath);
+    return inspectPath;
+  }
+
+  private buildElementPayload(el: Element): InspectSubmission["element"] {
+    const tag = el.tagName.toLowerCase();
+    const attrs: Record<string, string> = {};
+    for (const attr of Array.from(el.attributes)) {
+      attrs[attr.name] = attr.value;
     }
+
+    const path: string[] = [];
+    let node: Element | null = el;
+    while (node && node.tagName) {
+      let sel = node.tagName.toLowerCase();
+      if (node.id) sel += `#${node.id}`;
+      else if (node.className) sel += `.${String(node.className).split(" ")[0]}`;
+      path.unshift(sel);
+      node = node.parentElement;
+    }
+
+    const computedStyles: Record<string, string> = {};
+    try {
+      const cs = this.iframe.contentWindow!.getComputedStyle(el);
+      const keys = ["display", "position", "width", "height", "margin", "padding", "color", "background-color", "font-size", "flex", "grid"];
+      for (const key of keys) {
+        computedStyles[key] = cs.getPropertyValue(key);
+      }
+    } catch {
+      // Leave styles empty on cross-origin issues.
+    }
+
+    return {
+      tag,
+      selector: path.join(" > "),
+      attributes: attrs,
+      computedStyles,
+      html: el.outerHTML.slice(0, 3000),
+    };
   }
 
   private getInspectPath(): string {

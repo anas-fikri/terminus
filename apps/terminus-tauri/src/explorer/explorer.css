@@ -3,7 +3,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   height: 100%;
-  overflow-y: auto;
+  overflow: auto;
   background: var(--color-bg-surface);
 }
 
@@ -21,6 +21,8 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  width: max-content;
+  min-width: 100%;
 }
 
 /* Nested sublists get indented with a guide line */
@@ -31,9 +33,13 @@
 }
 
 .explorer__item {
+  display: block;
+}
+
+.explorer__row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 3px;
   padding: 1px var(--space-2);
   cursor: pointer;
@@ -44,9 +50,10 @@
   position: relative;
   border-radius: 3px;
   margin: 0 var(--space-1);
+  min-width: max-content;
 }
 
-.explorer__item:hover {
+.explorer__row:hover {
   background: var(--color-bg-elevated);
 }
 
@@ -71,11 +78,9 @@
 .explorer__item--dir .explorer__icon { color: var(--color-accent); }
 
 .explorer__name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
   white-space: nowrap;
-  min-width: 0;
+  min-width: max-content;
 }
 
 /* Sublist pushed to its own row below the item label */
@@ -93,7 +98,7 @@
   flex-shrink: 0;
   margin-left: var(--space-1);
 }
-.explorer__item:hover .explorer__item-actions { display: flex; }
+.explorer__row:hover .explorer__item-actions { display: flex; }
 
 .explorer__item-btn {
   background: transparent;

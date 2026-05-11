@@ -3,8 +3,9 @@ import { Explorer } from "../explorer/Explorer";
 import { TerminalPane } from "../terminal/TerminalPane";
 import { StatusBar } from "../status/StatusBar";
 import { ViewerPane, type ViewerAttachment } from "../viewer/ViewerPane";
-import { BrowserPane } from "../browser/BrowserPane";
+import { BrowserPane, type InspectSubmission } from "../browser/BrowserPane";
 import { ProjectsPanel } from "../projects/ProjectsPanel";
+import { GitPanel } from "../git/GitPanel";
 import { getTree, readFileContent, type TreeNode } from "../ipc/bridge";
 import { attachResizeHandle } from "../utils/resize";
 import { trackActivity } from "../status/ActivityMonitor";
@@ -35,6 +36,7 @@ export class Shell {
 
   private tabBar!: TabBar;
   private explorer!: Explorer;
+  private gitPanel!: GitPanel;
   private projectsPanel!: ProjectsPanel;
   private statusBar!: StatusBar;
   private mainEl!: HTMLElement;
@@ -51,7 +53,16 @@ export class Shell {
         <div class="shell__body">
           <div class="shell__projects" id="slot-projects"></div>
           <div class="shell__main" id="slot-main"></div>
-          <div class="shell__tree" id="slot-tree"></div>
+          <div class="shell__tree" id="slot-tree">
+            <div class="shell__sidepanel">
+              <div class="shell__sidepanel-tabs">
+                <button class="shell__sidepanel-tab shell__sidepanel-tab--active" id="side-tab-explorer">Files</button>
+                <button class="shell__sidepanel-tab" id="side-tab-git">Git</button>
+              </div>
+              <div class="shell__sidepanel-body shell__sidepanel-body--active" id="slot-explorer"></div>
+              <div class="shell__sidepanel-body" id="slot-git"></div>
+            </div>
+          </div>
         </div>
         <div class="shell__statusbar" id="slot-statusbar"></div>
       </div>
@@ -78,10 +89,12 @@ export class Shell {
     );
 
     this.explorer = new Explorer(
-      this.root.querySelector("#slot-tree")!,
+      this.root.querySelector("#slot-explorer")!,
       (path) => this.openFile(path),
       (path) => this.attachFileToActiveSession(path)
     );
+
+    this.gitPanel = new GitPanel(this.root.querySelector("#slot-git")!);
 
     this.statusBar = new StatusBar(this.root.querySelector("#slot-statusbar")!);
 
@@ -90,13 +103,35 @@ export class Shell {
     const projectsEl = this.root.querySelector<HTMLElement>("#slot-projects")!;
     const treeEl = this.root.querySelector<HTMLElement>("#slot-tree")!;
     attachResizeHandle(body, projectsEl, this.mainEl, "horizontal", "terminus-projects-width");
-    attachResizeHandle(body, this.mainEl, treeEl, "horizontal", "terminus-tree-width");
+    attachResizeHandle(body, this.mainEl, treeEl, "horizontal", "terminus-tree-width", "next");
 
     // Setup keyboard shortcuts
     this.setupKeyboardShortcuts();
+    this.setupSidePanelTabs();
 
     // Create initial session tab
     this.newSessionTab();
+  }
+
+  private setupSidePanelTabs(): void {
+    this.root.querySelector("#side-tab-explorer")?.addEventListener("click", () => this.setSidePanelMode("explorer"));
+    this.root.querySelector("#side-tab-git")?.addEventListener("click", () => this.setSidePanelMode("git"));
+  }
+
+  private setSidePanelMode(mode: "explorer" | "git"): void {
+    const explorerTab = this.root.querySelector<HTMLElement>("#side-tab-explorer");
+    const gitTab = this.root.querySelector<HTMLElement>("#side-tab-git");
+    const explorerBody = this.root.querySelector<HTMLElement>("#slot-explorer");
+    const gitBody = this.root.querySelector<HTMLElement>("#slot-git");
+
+    explorerTab?.classList.toggle("shell__sidepanel-tab--active", mode === "explorer");
+    gitTab?.classList.toggle("shell__sidepanel-tab--active", mode === "git");
+    explorerBody?.classList.toggle("shell__sidepanel-body--active", mode === "explorer");
+    gitBody?.classList.toggle("shell__sidepanel-body--active", mode === "git");
+
+    if (mode === "git") {
+      void this.gitPanel.load();
+    }
   }
 
   private setupKeyboardShortcuts(): void {
@@ -125,6 +160,18 @@ export class Shell {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "l") {
         e.preventDefault();
         this.toggleInspector();
+      }
+
+      // Ctrl+Tab to next tab, Ctrl+Shift+Tab to previous tab
+      if (e.ctrlKey && e.key === "Tab") {
+        e.preventDefault();
+        if (this.tabs.length < 2) return;
+
+        const currentIdx = this.tabs.findIndex((t) => t.id === this.activeTabId);
+        const baseIdx = currentIdx >= 0 ? currentIdx : 0;
+        const delta = e.shiftKey ? -1 : 1;
+        const nextIdx = (baseIdx + delta + this.tabs.length) % this.tabs.length;
+        this.activateTab(this.tabs[nextIdx].id);
       }
     });
   }
@@ -213,7 +260,7 @@ export class Shell {
         const pane = new BrowserPane(el);
         pane.setProjectContext(tab.projectPath);
         if (tab.url) pane.setUrl(tab.url);
-        pane.setOnInspect((html, url, inspectPath) => this.sendInspectToTerminal(html, url, inspectPath));
+        pane.setOnInspect((submission) => this.sendInspectToTerminal(submission));
         inst = { type: "browser", pane, el };
       }
       this.panes.set(id, inst);
@@ -272,6 +319,8 @@ export class Shell {
     }
     
     this.explorer.load(path);
+    this.gitPanel.setWorkspace(path);
+    void this.gitPanel.load();
     void this.openProjectPreview(path);
   }
 
@@ -365,12 +414,14 @@ export class Shell {
 
   // ── Browser inspect → terminal ──
 
-  private sendInspectToTerminal(html: string, url: string, inspectPath: string): void {
+  private sendInspectToTerminal(submission: InspectSubmission): void {
     // Find active session tab; if none, create one and then inject
     const sessionInst = this.getActiveSessionInst() ?? this.findOrCreateSessionInst();
     if (sessionInst) {
       this.activateTab(sessionInst.id);
-      (this.panes.get(sessionInst.id) as { type: "session"; pane: TerminalPane; el: HTMLElement }).pane.injectInspectContext(html, url, inspectPath);
+      const pane = (this.panes.get(sessionInst.id) as { type: "session"; pane: TerminalPane; el: HTMLElement }).pane;
+      pane.injectInspectContext(submission.info, submission.url, submission.inspectPath);
+      pane.executeInspectSubmission(submission);
     }
   }
 
@@ -402,6 +453,10 @@ export class Shell {
     const relativePath = attachment.path
       ? this.toRelativePath(attachment.path, session.workspace)
       : undefined;
+    if (attachment.mode === "selection") {
+      session.pane.attachInlineSelection(attachment.content, relativePath);
+      return;
+    }
     session.pane.attachFileContent(attachment.name, attachment.content, relativePath, attachment.mode);
   }
 
