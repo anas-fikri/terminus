@@ -6,6 +6,7 @@ import {
   readFileContent,
   writeFileContentOverwrite,
 } from "../ipc/bridge";
+import { readVersionedStorage, writeVersionedStorage } from "../utils/versionedStorage";
 import "./extensions.css";
 
 export interface ExtensionLaunchRequest {
@@ -80,6 +81,7 @@ export class ExtensionsPanel {
   private kubectlContexts: string[] = [];
   private statusText = "";
   private statusKind: StatusKind = "info";
+  private stateRev = 0;
 
   constructor(el: HTMLElement, onLaunch: LaunchCallback) {
     this.el = el;
@@ -777,54 +779,34 @@ export class ExtensionsPanel {
   }
 
   private loadState(): ExtensionState {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<ExtensionState>;
-      return {
-        sshHost: parsed.sshHost ?? "",
-        sshUser: parsed.sshUser ?? "root",
-        sshPort: parsed.sshPort ?? "22",
-        sshWorkspace: parsed.sshWorkspace ?? ".",
-        sshIdentityFile: parsed.sshIdentityFile ?? "",
-        sshProxyJump: parsed.sshProxyJump ?? "",
-        sshPortForwards: parsed.sshPortForwards ?? "",
-        sshProfileName: parsed.sshProfileName ?? "",
-        sshProfiles: parsed.sshProfiles ?? [],
-        sshSelectedProfile: parsed.sshSelectedProfile ?? "",
-        kubeContext: parsed.kubeContext ?? "",
-        kubeNamespace: parsed.kubeNamespace ?? "default",
-        kubeWorkspace: parsed.kubeWorkspace ?? ".",
-        kubePod: parsed.kubePod ?? "",
-        kubeContainer: parsed.kubeContainer ?? "",
-        kubeProfileName: parsed.kubeProfileName ?? "",
-        kubeProfiles: parsed.kubeProfiles ?? [],
-        kubeSelectedProfile: parsed.kubeSelectedProfile ?? "",
-      };
-    } catch {
-      return {
-        sshHost: "",
-        sshUser: "root",
-        sshPort: "22",
-        sshWorkspace: ".",
-        sshIdentityFile: "",
-        sshProxyJump: "",
-        sshPortForwards: "",
-        sshProfileName: "",
-        sshProfiles: [],
-        sshSelectedProfile: "",
-        kubeContext: "",
-        kubeNamespace: "default",
-        kubeWorkspace: ".",
-        kubePod: "",
-        kubeContainer: "",
-        kubeProfileName: "",
-        kubeProfiles: [],
-        kubeSelectedProfile: "",
-      };
-    }
+    const stored = readVersionedStorage<Partial<ExtensionState>>(STORAGE_KEY, {});
+    this.stateRev = stored.meta.rev;
+    const parsed = stored.value;
+    return {
+      sshHost: parsed.sshHost ?? "",
+      sshUser: parsed.sshUser ?? "root",
+      sshPort: parsed.sshPort ?? "22",
+      sshWorkspace: parsed.sshWorkspace ?? ".",
+      sshIdentityFile: parsed.sshIdentityFile ?? "",
+      sshProxyJump: parsed.sshProxyJump ?? "",
+      sshPortForwards: parsed.sshPortForwards ?? "",
+      sshProfileName: parsed.sshProfileName ?? "",
+      sshProfiles: parsed.sshProfiles ?? [],
+      sshSelectedProfile: parsed.sshSelectedProfile ?? "",
+      kubeContext: parsed.kubeContext ?? "",
+      kubeNamespace: parsed.kubeNamespace ?? "default",
+      kubeWorkspace: parsed.kubeWorkspace ?? ".",
+      kubePod: parsed.kubePod ?? "",
+      kubeContainer: parsed.kubeContainer ?? "",
+      kubeProfileName: parsed.kubeProfileName ?? "",
+      kubeProfiles: parsed.kubeProfiles ?? [],
+      kubeSelectedProfile: parsed.kubeSelectedProfile ?? "",
+    };
   }
 
   private saveState(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+    const next = writeVersionedStorage(STORAGE_KEY, this.state, this.stateRev);
+    this.stateRev = next.meta.rev;
   }
 }
 

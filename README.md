@@ -9,6 +9,13 @@ Terminus is a Tauri + Vite desktop workspace app focused on daily development fl
 
 This repository uses a Rust workspace with a Tauri app in apps/terminus-tauri.
 
+## Acknowledgement
+
+The core idea for this project was inspired by termul from gnoviawan:
+https://github.com/gnoviawan/termul
+
+With the highest respect and appreciation to gnoviawan for the original work and inspiration.
+
 ## Project Structure
 
 - apps/terminus-tauri: main desktop app (frontend + Tauri backend)

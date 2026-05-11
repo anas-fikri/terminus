@@ -2,11 +2,20 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ptySpawn, ptyWrite, ptyResize, ptyKill, onPtyData, onPtyExit } from "../ipc/bridge";
+import { readVersionedStorage, writeVersionedStorage } from "../utils/versionedStorage";
 import type { InspectSubmission } from "../browser/BrowserPane";
 import "@xterm/xterm/css/xterm.css";
 import "./terminal.css";
 
 let sessionCounter = 0;
+
+interface TerminalSettings {
+  fontSize: number;
+  lineHeight: number;
+  fontFamily: string;
+  bgColor?: string;
+  fgColor?: string;
+}
 
 function isDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -53,6 +62,7 @@ export class TerminalPane {
   private started = false;
   private initialFitted = false;
   private pendingCommands: string[] = [];
+  private settingsRev = 0;
 
   constructor(el: HTMLElement) {
     this.el = el;
@@ -339,30 +349,23 @@ export class TerminalPane {
     this.term.focus();
   }
 
-  private loadSettings() {
-    try {
-      const s = JSON.parse(localStorage.getItem("pty-settings") ?? "{}");
-      return {
-        fontSize: s.fontSize ?? 13,
-        lineHeight: s.lineHeight ?? 1.3,
-        fontFamily: s.fontFamily ?? '"JetBrains Mono", Menlo, "Fira Code", monospace',
-        bgColor: s.bgColor ?? undefined,
-        fgColor: s.fgColor ?? undefined,
-      };
-    } catch {
-      return {
-        fontSize: 13,
-        lineHeight: 1.3,
-        fontFamily: '"JetBrains Mono", Menlo, "Fira Code", monospace',
-        bgColor: undefined,
-        fgColor: undefined,
-      };
-    }
+  private loadSettings(): TerminalSettings {
+    const stored = readVersionedStorage<Partial<TerminalSettings>>("pty-settings", {});
+    this.settingsRev = stored.meta.rev;
+    const s = stored.value;
+    return {
+      fontSize: s.fontSize ?? 13,
+      lineHeight: s.lineHeight ?? 1.3,
+      fontFamily: s.fontFamily ?? '"JetBrains Mono", Menlo, "Fira Code", monospace',
+      bgColor: s.bgColor ?? undefined,
+      fgColor: s.fgColor ?? undefined,
+    };
   }
 
-  private saveSettings(partial: Partial<ReturnType<typeof this.loadSettings>>): void {
+  private saveSettings(partial: Partial<TerminalSettings>): void {
     const current = this.loadSettings();
-    localStorage.setItem("pty-settings", JSON.stringify({ ...current, ...partial }));
+    const next = writeVersionedStorage("pty-settings", { ...current, ...partial }, this.settingsRev);
+    this.settingsRev = next.meta.rev;
   }
 
   destroy(): void {

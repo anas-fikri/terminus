@@ -9,6 +9,7 @@ import { GitPanel } from "../git/GitPanel";
 import { ExtensionsPanel, type ExtensionLaunchRequest } from "../extensions/ExtensionsPanel";
 import { getTree, readFileContent, type TreeNode } from "../ipc/bridge";
 import { attachResizeHandle } from "../utils/resize";
+import { WorkspaceLockManager } from "../utils/workspaceLock";
 import { trackActivity } from "../status/ActivityMonitor";
 import "./shell.css";
 
@@ -44,6 +45,7 @@ export class Shell {
   private statusBar!: StatusBar;
   private mainEl!: HTMLElement;
   private inspectorVisible = true;
+  private readonly workspaceLocks = new WorkspaceLockManager();
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -118,6 +120,7 @@ export class Shell {
     // Setup keyboard shortcuts
     this.setupKeyboardShortcuts();
     this.setupSidePanelTabs();
+    this.workspaceLocks.bindWindowLifecycle();
 
     // Create initial session tab
     this.newSessionTab();
@@ -325,6 +328,15 @@ export class Shell {
   // ── Project ──
 
   openProject(path: string): void {
+    const lock = this.workspaceLocks.tryAcquire(path);
+    if (!lock.ok) {
+      const lastActiveAt = lock.heartbeatAt
+        ? new Date(lock.heartbeatAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        : "unknown";
+      window.alert(`Workspace ini sedang aktif di window Terminus lain (last heartbeat ${lastActiveAt}).\n\nTutup workspace di window lain dulu, atau tunggu lock timeout sekitar 20 detik.`);
+      return;
+    }
+
     this.projectsPanel.setActive(path);
     this.statusBar.setWorkspace(path);
     this.extensionsPanel.setWorkspace(path);
