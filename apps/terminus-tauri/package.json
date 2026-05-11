@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "node scripts/tauri-proxy.mjs",
     "tauri:dev": "node scripts/tauri-dev-safe.mjs",
-    "tauri:dev:safe": "node scripts/tauri-dev-safe.mjs"
+    "tauri:dev:safe": "node scripts/tauri-dev-safe.mjs",
+    "build:mac": "npm run tauri -- build --bundles app,dmg",
+    "build:mac:installer": "npm run tauri -- build --bundles app && node scripts/make-macos-pkg.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

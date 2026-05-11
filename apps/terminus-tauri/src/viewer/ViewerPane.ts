@@ -10,6 +10,13 @@ export type ViewerSource =
   | { kind: "file"; path: string }
   | { kind: "content"; content: string; name: string };
 
+export interface ViewerAttachment {
+  mode: "read" | "source";
+  name: string;
+  path?: string;
+  content: string;
+}
+
 function ext(name: string): string {
   return name.split(".").pop()?.toLowerCase() ?? "";
 }
@@ -18,9 +25,13 @@ export class ViewerPane {
   private el: HTMLElement;
   private contentEl!: HTMLElement;
   private source: ViewerSource | null = null;
+  private onAttach?: (attachment: ViewerAttachment) => void;
+  private contextMenuEl!: HTMLElement;
+  private selectedTextSnapshot = "";
 
-  constructor(el: HTMLElement) {
+  constructor(el: HTMLElement, onAttach?: (attachment: ViewerAttachment) => void) {
     this.el = el;
+    this.onAttach = onAttach;
     this.mount();
   }
 
@@ -29,18 +40,33 @@ export class ViewerPane {
       <div class="viewer">
         <div class="viewer__toolbar" id="vwr-toolbar">
           <span class="viewer__label" id="vwr-label">—</span>
+          <button class="viewer__btn" id="vwr-attach-read" style="display:none">Attach Read</button>
+          <button class="viewer__btn" id="vwr-attach-source" style="display:none">Attach Source</button>
           <button class="viewer__btn" id="vwr-reload">↺ Reload</button>
           <button class="viewer__btn" id="vwr-raw" style="display:none">‹/› Raw</button>
         </div>
         <div class="viewer__body" id="vwr-body">
           <div class="viewer__empty">Open a file from the Explorer to preview it here.</div>
         </div>
+        <div class="viewer__context-menu" id="vwr-context-menu" style="display:none">
+          <button class="viewer__context-item" id="vwr-add-selection">Add to CLI</button>
+        </div>
       </div>
     `;
 
     this.contentEl = this.el.querySelector("#vwr-body")!;
+    this.contextMenuEl = this.el.querySelector("#vwr-context-menu")!;
+    this.el.querySelector("#vwr-attach-read")!.addEventListener("click", () => this.attachRead());
+    this.el.querySelector("#vwr-attach-source")!.addEventListener("click", () => this.attachSource());
     this.el.querySelector("#vwr-reload")!.addEventListener("click", () => this.reload());
     this.el.querySelector("#vwr-raw")!.addEventListener("click", () => this.toggleRaw());
+    this.el.querySelector("#vwr-add-selection")!.addEventListener("click", () => this.attachSelection());
+
+    this.contentEl.addEventListener("contextmenu", (e) => this.openSelectionMenu(e));
+    document.addEventListener("click", () => this.hideSelectionMenu());
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") this.hideSelectionMenu();
+    });
   }
 
   async open(source: ViewerSource): Promise<void> {
@@ -90,8 +116,14 @@ export class ViewerPane {
 
       // Show raw button for text-based formats
       const rawBtn = this.el.querySelector<HTMLElement>("#vwr-raw")!;
+      const attachReadBtn = this.el.querySelector<HTMLElement>("#vwr-attach-read")!;
+      const attachSourceBtn = this.el.querySelector<HTMLElement>("#vwr-attach-source")!;
+      attachReadBtn.style.display = "";
+      attachSourceBtn.style.display = "";
       if (["md", "mmd", "drawio", "svg", "html", "txt"].includes(ext(name))) {
         rawBtn.style.display = "";
+      } else {
+        rawBtn.style.display = "none";
       }
 
       this.rawMode = false;
@@ -203,6 +235,81 @@ export class ViewerPane {
 
   destroy(): void {
     this.contentEl.innerHTML = "";
+  }
+
+  private attachSource(): void {
+    if (!this.source || !this.onAttach) return;
+    this.onAttach({
+      mode: "source",
+      name: this.currentName(),
+      path: this.source.kind === "file" ? this.source.path : undefined,
+      content: this.rawContent,
+    });
+  }
+
+  private attachRead(): void {
+    if (!this.source || !this.onAttach) return;
+    this.onAttach({
+      mode: "read",
+      name: this.currentName(),
+      path: this.source.kind === "file" ? this.source.path : undefined,
+      content: this.getReadableContent(),
+    });
+  }
+
+  private getReadableContent(): string {
+    if (this.rawMode) return this.rawContent;
+    const text = this.contentEl.innerText.trim();
+    return text || this.rawContent;
+  }
+
+  private openSelectionMenu(e: MouseEvent): void {
+    const selected = this.getSelectedText();
+    if (!selected) {
+      this.hideSelectionMenu();
+      return;
+    }
+
+    e.preventDefault();
+    this.selectedTextSnapshot = selected;
+    this.contextMenuEl.style.display = "block";
+    this.contextMenuEl.style.left = `${e.clientX}px`;
+    this.contextMenuEl.style.top = `${e.clientY}px`;
+  }
+
+  private hideSelectionMenu(): void {
+    if (this.contextMenuEl) {
+      this.contextMenuEl.style.display = "none";
+    }
+  }
+
+  private getSelectedText(): string {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return "";
+    const range = selection.getRangeAt(0);
+    const common = range.commonAncestorContainer;
+    const inViewer = this.contentEl.contains(common.nodeType === Node.TEXT_NODE ? common.parentNode : common);
+    if (!inViewer) return "";
+    const text = selection.toString().trim();
+    return text;
+  }
+
+  private attachSelection(): void {
+    const selected = this.selectedTextSnapshot || this.getSelectedText();
+    if (!selected || !this.onAttach) {
+      this.hideSelectionMenu();
+      return;
+    }
+
+    this.onAttach({
+      mode: "read",
+      name: `${this.currentName() || "viewer"} [selection]`,
+      path: this.source?.kind === "file" ? this.source.path : undefined,
+      content: selected,
+    });
+
+    this.selectedTextSnapshot = "";
+    this.hideSelectionMenu();
   }
 }
 

@@ -240,9 +240,38 @@ export class TerminalPane {
     }
   }
 
+  private formatAttachToken(path: string): string {
+    // Keep attachment text shell-safe but simple for AI CLIs to parse.
+    return `${JSON.stringify(path)} `;
+  }
+
+  private formatAttachContentBlock(
+    name: string,
+    content: string,
+    sourcePath?: string,
+    mode: "read" | "source" = "source"
+  ): string {
+    const maxChars = 12000;
+    const clipped = content.length > maxChars;
+    const safe = clipped ? `${content.slice(0, maxChars)}\n\n[truncated ${content.length - maxChars} chars]` : content;
+    const header = sourcePath
+      ? `[ATTACH:${mode.toUpperCase()}] ${name} (${sourcePath})`
+      : `[ATTACH:${mode.toUpperCase()}] ${name}`;
+    return `${header}\n\n${safe}\n`;
+  }
+
   attachFile(path: string): void {
     if (this.started) {
-      ptyWrite(this.sessionId, path).catch(() => {});
+      ptyWrite(this.sessionId, this.formatAttachToken(path)).catch(() => {});
+      this.term.focus();
+    }
+  }
+
+  attachFileContent(name: string, content: string, sourcePath?: string, mode: "read" | "source" = "source"): void {
+    if (this.started) {
+      const payload = this.formatAttachContentBlock(name, content, sourcePath, mode);
+      ptyWrite(this.sessionId, payload).catch(() => {});
+      this.term.focus();
     }
   }
 

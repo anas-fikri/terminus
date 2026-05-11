@@ -2,7 +2,7 @@ import { TabBar } from "./TabBar";
 import { Explorer } from "../explorer/Explorer";
 import { TerminalPane } from "../terminal/TerminalPane";
 import { StatusBar } from "../status/StatusBar";
-import { ViewerPane } from "../viewer/ViewerPane";
+import { ViewerPane, type ViewerAttachment } from "../viewer/ViewerPane";
 import { BrowserPane } from "../browser/BrowserPane";
 import { ProjectsPanel } from "../projects/ProjectsPanel";
 import { getTree, readFileContent, type TreeNode } from "../ipc/bridge";
@@ -207,7 +207,7 @@ export class Shell {
         pane.setWorkspace(tab.workspace);
         inst = { type: "session", pane, el };
       } else if (tab.type === "viewer") {
-        const pane = new ViewerPane(el);
+        const pane = new ViewerPane(el, (attachment) => this.attachViewerToActiveSession(attachment));
         inst = { type: "viewer", pane, el };
       } else {
         const pane = new BrowserPane(el);
@@ -390,20 +390,60 @@ export class Shell {
   // ── File attach to active session ──
 
   private attachFileToActiveSession(path: string): void {
+    const session = this.getOrActivateSessionPane();
+    if (!session) return;
+    const relativePath = this.toRelativePath(path, session.workspace);
+    session.pane.attachFile(relativePath);
+  }
+
+  private attachViewerToActiveSession(attachment: ViewerAttachment): void {
+    const session = this.getOrActivateSessionPane();
+    if (!session) return;
+    const relativePath = attachment.path
+      ? this.toRelativePath(attachment.path, session.workspace)
+      : undefined;
+    session.pane.attachFileContent(attachment.name, attachment.content, relativePath, attachment.mode);
+  }
+
+  private getOrActivateSessionPane(): { pane: TerminalPane; workspace: string } | undefined {
     const inst = this.panes.get(this.activeTabId ?? "");
     if (inst?.type === "session") {
-      inst.pane.attachFile(path);
-    } else {
-      // Find most-recent session tab and attach there
-      const sessionTab = [...this.tabs].reverse().find((t) => t.type === "session");
-      if (sessionTab) {
-        const si = this.panes.get(sessionTab.id);
-        if (si?.type === "session") {
-          this.activateTab(sessionTab.id);
-          si.pane.attachFile(path);
-        }
-      }
+      const activeTab = this.tabs.find((t) => t.id === this.activeTabId);
+      return { pane: inst.pane, workspace: activeTab?.workspace ?? "." };
     }
+
+    // Find most-recent session tab and attach there
+    const sessionTab = [...this.tabs].reverse().find((t) => t.type === "session");
+    if (!sessionTab) return undefined;
+
+    this.activateTab(sessionTab.id);
+    const active = this.panes.get(sessionTab.id);
+    if (active?.type === "session") {
+      return { pane: active.pane, workspace: sessionTab.workspace };
+    }
+
+    return undefined;
+  }
+
+  private toRelativePath(path: string, base: string): string {
+    if (!path) return path;
+    if (!base || base === ".") return path;
+
+    const fileParts = path.split("/").filter(Boolean);
+    const baseParts = base.split("/").filter(Boolean);
+    let i = 0;
+    while (i < fileParts.length && i < baseParts.length && fileParts[i] === baseParts[i]) {
+      i += 1;
+    }
+
+    if (i === 0) {
+      return path.split("/").pop() ?? path;
+    }
+
+    const up = new Array(baseParts.length - i).fill("..");
+    const down = fileParts.slice(i);
+    const rel = [...up, ...down].join("/");
+    return rel || ".";
   }
 
   // ── File open from Explorer ──

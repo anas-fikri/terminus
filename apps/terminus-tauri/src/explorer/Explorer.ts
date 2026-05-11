@@ -85,7 +85,7 @@ export class Explorer {
 
         const attachBtn = document.createElement("button");
         attachBtn.className = "explorer__item-btn";
-        attachBtn.title = "Attach to terminal";
+        attachBtn.title = "Attach path to terminal";
         attachBtn.innerHTML = icon("paperclip", 11);
         attachBtn.addEventListener("click", (e) => {
           e.stopPropagation();
