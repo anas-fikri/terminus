@@ -27,9 +27,29 @@ pub async fn pty_spawn(
     let size = PtySize { rows: 24, cols: 200, pixel_width: 0, pixel_height: 0 };
     let pair = pty_system.openpty(size).map_err(|e| e.to_string())?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| {
+            if cfg!(target_os = "windows") {
+                "powershell.exe".to_string()
+            } else if cfg!(target_os = "macos") {
+                "/bin/zsh".to_string()
+            } else {
+                "/bin/bash".to_string()
+            }
+        });
     let mut cmd = CommandBuilder::new(&shell);
-    cmd.arg("-l");
+    if cfg!(target_os = "windows") {
+        let lower = shell.to_ascii_lowercase();
+        if lower.contains("powershell") || lower == "pwsh" || lower.ends_with("/pwsh") {
+            cmd.arg("-NoLogo");
+        } else if lower.ends_with("cmd") || lower.ends_with("cmd.exe") {
+            cmd.arg("/K");
+        }
+    } else {
+        cmd.arg("-l");
+    }
     for (k, v) in std::env::vars() {
         cmd.env(k, v);
     }

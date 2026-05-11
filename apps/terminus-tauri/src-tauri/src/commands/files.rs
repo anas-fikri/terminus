@@ -1,8 +1,27 @@
 use std::path::Path;
 
+fn home_dir_from_env() -> Option<String> {
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.trim().is_empty() {
+            return Some(home);
+        }
+    }
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        if !profile.trim().is_empty() {
+            return Some(profile);
+        }
+    }
+    let drive = std::env::var("HOMEDRIVE").unwrap_or_default();
+    let path = std::env::var("HOMEPATH").unwrap_or_default();
+    if !drive.is_empty() && !path.is_empty() {
+        return Some(format!("{}{}", drive, path));
+    }
+    None
+}
+
 fn expand_tilde(path: &str) -> String {
     if path.starts_with("~/") || path == "~" {
-        if let Ok(home) = std::env::var("HOME") {
+        if let Some(home) = home_dir_from_env() {
             return path.replacen("~", &home, 1);
         }
     }

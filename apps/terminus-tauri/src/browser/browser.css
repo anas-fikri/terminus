@@ -1,3 +1,66 @@
+/* Inspect tooltip overlay for AI per-element command */
+.browser__inspect-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: color-mix(in srgb, var(--color-bg-surface) 90%, #101420 10%);
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px 0 rgba(0,0,0,0.18);
+  padding: 0;
+  width: 280px;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.browser__inspect-tooltip-inner {
+  padding: 12px 12px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.browser__inspect-tooltip-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+.browser__inspect-tooltip-input {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  resize: vertical;
+}
+.browser__inspect-tooltip-send {
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-end;
+  transition: opacity 0.15s;
+}
+.browser__inspect-tooltip-send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.browser__inspect-tooltip-output {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border-radius: 6px;
+  padding: 6px;
+  min-height: 18px;
+  margin-top: 2px;
+  white-space: pre-wrap;
+}
 .browser {
   display: flex;
   flex-direction: column;
@@ -31,6 +94,10 @@
 }
 .browser__nav-btn:hover:not(:disabled) { background: var(--color-bg-elevated); color: var(--color-text-primary); }
 .browser__nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.browser__nav-btn--active {
+  background: var(--color-accent) !important;
+  color: #fff !important;
+}
 
 .browser__addr-wrap {
   flex: 1;
@@ -77,6 +144,102 @@
   flex: 1;
   position: relative;
   overflow: hidden;
+}
+
+.browser__ai-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(360px, 42vw);
+  height: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-left: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-surface) 92%, #101420 8%);
+  backdrop-filter: blur(8px);
+}
+
+.browser__ai-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+}
+
+.browser__ai-head-sub {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.browser__ai-hints {
+  display: flex;
+  gap: 6px;
+}
+
+.browser__ai-chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.browser__ai-chip:hover {
+  color: var(--color-text-primary);
+}
+
+.browser__ai-output {
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: color-mix(in srgb, var(--color-bg-base) 92%, #000 8%);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.browser__ai-msg {
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.browser__ai-msg--system {
+  color: #8cb4ff;
+  background: rgba(88, 166, 255, 0.12);
+}
+
+.browser__ai-msg--user {
+  color: var(--color-text-primary);
+  background: rgba(63, 185, 80, 0.12);
+  align-self: flex-end;
+}
+
+.browser__ai-msg--assistant {
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.browser__ai-input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  padding: 8px;
+  font: inherit;
+  font-size: 12px;
 }
 
 .browser__frame {
