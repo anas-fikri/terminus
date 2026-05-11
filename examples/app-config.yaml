@@ -1,0 +1,16 @@
+default_provider: openai
+providers:
+  openai:
+    name: openai
+    base_url: https://api.openai.com/v1/chat/completions
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+  llmcustom:
+    name: llmcustom
+    base_url: https://your-custom-endpoint.example/v1/chat/completions
+    model: custom-model
+    api_key_env: LLMCUSTOM_API_KEY
+mcp_default_policy: confirm
+monitoring_retention_days: 30
+git:
+  mode: read-only

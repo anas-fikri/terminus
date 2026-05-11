@@ -1,0 +1,102 @@
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 var(--space-3);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: linear-gradient(90deg, rgba(88,166,255,0.08) 0%, transparent 100%);
+  gap: 12px;
+}
+
+.statusbar__brand {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusbar__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--color-text-primary);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  margin-left: auto;
+}
+
+.statusbar__monitor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.statusbar__monitor-item,
+.statusbar__monitor-usage {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-surface) 85%, transparent);
+  font-family: "JetBrains Mono", Menlo, monospace;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusbar__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--color-bg-surface);
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  font-family: "JetBrains Mono", Menlo, monospace;
+}
+
+.statusbar__item--cpu { color: #ff7b72; }
+.statusbar__item--mem { color: #3fb950; }
+.statusbar__item--gpu { color: #58a6ff; }
+.statusbar__item--git { color: #a371f7; }
+
+/* AI State Indicator */
+.ai-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+}
+
+.ai-state__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.ai-state--loading  { color: var(--color-text-muted); }
+.ai-state--working  { color: var(--color-ai-working); }
+.ai-state--thinking { color: var(--color-ai-working); }
+.ai-state--streaming { color: var(--color-ai-streaming); }
+.ai-state--done     { color: var(--color-success); }
+.ai-state--error    { color: var(--color-error); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}

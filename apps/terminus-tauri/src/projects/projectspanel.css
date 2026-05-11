@@ -1,0 +1,117 @@
+.pp {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-surface);
+}
+
+.pp__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.pp__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.pp__open-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  border-radius: 3px;
+  transition: color 0.1s;
+}
+.pp__open-btn:hover { color: var(--color-text-primary); }
+
+.pp__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-1) 0;
+}
+
+.pp__empty {
+  padding: var(--space-4) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.pp__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  border-radius: 0;
+}
+.pp__item:hover { background: var(--color-bg-elevated); }
+.pp__item--active { background: var(--color-bg-elevated); }
+
+.pp__item-icon {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  width: 12px;
+}
+.pp__item--active .pp__item-icon { color: var(--color-accent); }
+
+.pp__item-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.pp__item-name {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp__item--active .pp__item-name { color: var(--color-accent); }
+
+.pp__item-path {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.pp__footer {
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-2);
+  flex-shrink: 0;
+}
+
+.pp__browse-btn {
+  width: 100%;
+  padding: var(--space-2);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  text-align: center;
+  transition: background 0.1s, color 0.1s;
+}
+.pp__browse-btn:hover { background: var(--color-bg-overlay); color: var(--color-text-primary); }

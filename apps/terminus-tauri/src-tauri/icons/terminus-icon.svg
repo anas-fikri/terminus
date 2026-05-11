@@ -1,0 +1,27 @@
+<svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background - rounded square -->
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="#3B82F6" />
+  
+  <!-- Terminal window outline -->
+  <rect x="40" y="40" width="176" height="176" rx="8" fill="none" stroke="white" stroke-width="6" />
+  
+  <!-- Terminal header bar -->
+  <rect x="40" y="40" width="176" height="30" rx="8" fill="white" />
+  
+  <!-- Terminal header dots (minimize, maximize, close) -->
+  <circle cx="56" cy="55" r="3" fill="#FF6B6B" />
+  <circle cx="72" cy="55" r="3" fill="#FFD93D" />
+  <circle cx="88" cy="55" r="3" fill="#6BCB77" />
+  
+  <!-- Terminal content area - dark background -->
+  <rect x="40" y="70" width="176" height="146" fill="#1F2937" />
+  
+  <!-- Terminal text lines - cursor-like appearance -->
+  <line x1="56" y1="90" x2="120" y2="90" stroke="white" stroke-width="4" stroke-linecap="round" />
+  <line x1="56" y1="110" x2="100" y2="110" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7" />
+  <line x1="56" y1="130" x2="140" y2="130" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.5" />
+  <line x1="56" y1="150" x2="110" y2="150" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.3" />
+  
+  <!-- Cursor blinking indicator -->
+  <rect x="160" y="150" width="8" height="16" fill="#00D4FF" />
+</svg>

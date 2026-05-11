@@ -1,0 +1,119 @@
+.explorer {
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-bg-surface);
+}
+
+.explorer__heading {
+  padding: var(--space-2) var(--space-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.explorer__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Nested sublists get indented with a guide line */
+.explorer__item > .explorer__list {
+  padding-left: 10px;
+  margin-left: 8px;
+  border-left: 1px solid var(--color-border);
+}
+
+.explorer__item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 1px var(--space-2);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--color-text-primary);
+  position: relative;
+  border-radius: 3px;
+  margin: 0 var(--space-1);
+}
+
+.explorer__item:hover {
+  background: var(--color-bg-elevated);
+}
+
+.explorer__item--dir {
+  color: var(--color-text-primary);
+}
+
+.explorer__chevron {
+  width: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+
+.explorer__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+}
+.explorer__item--dir .explorer__icon { color: var(--color-accent); }
+
+.explorer__name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Sublist pushed to its own row below the item label */
+.explorer__item > .explorer__list {
+  flex-basis: 100%;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+/* Action buttons shown on hover */
+.explorer__item-actions {
+  display: none;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+}
+.explorer__item:hover .explorer__item-actions { display: flex; }
+
+.explorer__item-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.1s, background 0.1s;
+}
+.explorer__item-btn:hover { opacity: 1; background: var(--color-bg-overlay); }
+
+.explorer__empty,
+.explorer__loading,
+.explorer__error {
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.explorer__error { color: var(--color-error); }

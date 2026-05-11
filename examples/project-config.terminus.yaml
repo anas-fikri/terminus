@@ -1,0 +1,5 @@
+provider: openai
+model: gpt-4o-mini
+base_url: https://api.openai.com/v1/chat/completions
+api_key_env: OPENAI_API_KEY
+git_mode: read-only
