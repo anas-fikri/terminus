@@ -37,10 +37,10 @@ fn build_tree(path: &Path, depth: usize, max_depth: usize) -> anyhow::Result<Tre
         let mut entries: Vec<TreeNode> = fs::read_dir(path)?
             .filter_map(|e| e.ok())
             .filter(|e| {
-                // Skip hidden files and common noise dirs
+                // Skip common noise dirs but include hidden files/folders
                 let fname = e.file_name();
                 let s = fname.to_string_lossy();
-                !s.starts_with('.') && s != "target" && s != "node_modules"
+                s != "target" && s != "node_modules"
             })
             .filter_map(|e| build_tree(&e.path(), depth + 1, max_depth).ok())
             .collect();

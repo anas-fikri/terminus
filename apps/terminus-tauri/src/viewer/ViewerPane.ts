@@ -13,11 +13,14 @@ mermaid.initialize({
   startOnLoad: false,
   theme: "dark",
   securityLevel: "loose",
-  // Font rendering optimization for diagram text visibility
   fontFamily: "system-ui, -apple-system, sans-serif",
-  // Ensure text is rendered properly in various diagram types
-  flowchart: { htmlLabels: false },
+  flowchart: {
+    useMaxWidth: true,
+    htmlLabels: true,
+    curve: "basis",
+  },
   er: { useMaxWidth: true },
+  wrap: true,
 });
 
 export type ViewerSource =
@@ -523,12 +526,22 @@ export class ViewerPane {
     const sanitized = DOMPurify.sanitize(svg, {
       USE_PROFILES: { svg: true },
       ADD_TAGS: ["style", "tspan", "defs", "marker", "g", "text", "path", "line", "polyline", "polygon", "rect", "circle", "ellipse", "foreignObject"],
-      ADD_ATTR: ["marker-width", "marker-height", "marker-end", "marker-start", "marker-mid", "style", "class", "id", "viewBox", "preserveAspectRatio"],
+      ADD_ATTR: ["marker-width", "marker-height", "marker-end", "marker-start", "marker-mid", "style", "class", "id", "viewBox", "preserveAspectRatio", "width", "height"],
       KEEP_CONTENT: true,
       FORCE_BODY: true,
       RETURN_DOM: false,
     });
-    return sanitized;
+    // Ensure SVG has responsive sizing attributes
+    const enhanced = sanitized.replace(
+      /<svg([^>]*?)>/,
+      (match, attrs) => {
+        if (!attrs.includes('width=') && !attrs.includes('height=')) {
+          return `<svg${attrs} style="width: 100%; height: auto;">`;
+        }
+        return match;
+      }
+    );
+    return enhanced;
   }
 
   private renderHtml(html: string): void {

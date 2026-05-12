@@ -167,14 +167,32 @@
   background: var(--color-bg-surface);
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  width: 100%;
+  overflow-x: auto;
+}
+
+.viewer__mermaid svg {
+  max-width: 100%;
+  height: auto !important;
 }
 
 .viewer__mermaid-full {
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   min-height: 200px;
   padding: var(--space-6);
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.viewer__mermaid-full svg {
+  max-width: 100%;
+  height: auto !important;
+  min-width: 100%;
+  background: var(--color-bg-base);
+  border-radius: var(--radius-sm);
 }
 
 .viewer__mermaid-error {
