@@ -3,6 +3,7 @@
   flex-direction: column;
   height: 100%;
   background: var(--color-bg-base);
+  position: relative;
 }
 
 .viewer__toolbar {
@@ -40,6 +41,18 @@
 }
 .viewer__btn:hover { background: var(--color-bg-overlay); }
 
+.viewer__btn--active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.viewer__zoom-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  min-width: 42px;
+  text-align: center;
+}
+
 .viewer__body {
   flex: 1;
   overflow-y: auto;
@@ -72,7 +85,7 @@
 .viewer__md {
   color: var(--color-text-primary);
   line-height: 1.7;
-  font-size: var(--font-size-md);
+  font-size: calc(var(--font-size-md) * var(--viewer-md-zoom, 1));
 }
 
 .viewer__md h1,
@@ -286,6 +299,76 @@
 
 .viewer__context-item:hover {
   background: var(--color-bg-overlay);
+}
+
+.viewer__edit-dialog {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.viewer__edit-card {
+  width: min(760px, calc(100% - 32px));
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.viewer__edit-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.viewer__edit-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.viewer__edit-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.viewer__edit-area {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.viewer__edit-area--readonly {
+  opacity: 0.9;
+}
+
+.viewer__edit-error {
+  min-height: 18px;
+  color: var(--color-error);
+  font-size: var(--font-size-xs);
+}
+
+.viewer__edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 /* PDF Viewer */

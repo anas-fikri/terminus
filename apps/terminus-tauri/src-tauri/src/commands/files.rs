@@ -35,6 +35,13 @@ pub fn read_file_content(path: String) -> Result<String, String> {
     std::fs::read_to_string(&resolved).map_err(|e| format!("Cannot read {resolved}: {e}"))
 }
 
+/// Read a local file's raw bytes for binary-safe viewers (for example PDF).
+#[tauri::command]
+pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    let resolved = expand_tilde(&path);
+    std::fs::read(&resolved).map_err(|e| format!("Cannot read {resolved}: {e}"))
+}
+
 /// Append text content to a file (creates parent dirs and file if needed).
 #[tauri::command]
 pub fn write_file_content(path: String, content: String) -> Result<(), String> {
@@ -70,4 +77,18 @@ pub fn get_file_ext(path: String) -> String {
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_lowercase()
+}
+
+/// Get file modified timestamp (milliseconds since unix epoch).
+#[tauri::command]
+pub fn get_file_modified_ms(path: String) -> Result<Option<u128>, String> {
+    let resolved = expand_tilde(&path);
+    let metadata = std::fs::metadata(&resolved).map_err(|e| format!("Cannot stat {resolved}: {e}"))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Cannot read modified time {resolved}: {e}"))?;
+    match modified.duration_since(std::time::UNIX_EPOCH) {
+        Ok(duration) => Ok(Some(duration.as_millis())),
+        Err(_) => Ok(None),
+    }
 }

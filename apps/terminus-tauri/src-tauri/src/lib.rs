@@ -25,9 +25,11 @@ pub fn run() {
             commands::explorer::get_tree,
             // Files
             commands::files::read_file_content,
+            commands::files::read_file_bytes,
             commands::files::write_file_content,
             commands::files::write_file_content_overwrite,
             commands::files::get_file_ext,
+            commands::files::get_file_modified_ms,
             // Browser
             commands::browser::fetch_remote_html,
             // Git

@@ -92,7 +92,8 @@ export class Shell {
 
     this.projectsPanel = new ProjectsPanel(
       this.root.querySelector("#slot-projects")!,
-      (path) => this.openProject(path)
+      (path) => this.openProject(path),
+      (request) => this.openExtensionSession(request)
     );
 
     this.explorer = new Explorer(

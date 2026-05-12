@@ -161,6 +161,10 @@ export function readFileContent(path: string): Promise<string> {
   return invoke("read_file_content", { path });
 }
 
+export function readFileBytes(path: string): Promise<number[]> {
+  return invoke("read_file_bytes", { path });
+}
+
 export function writeFileContent(path: string, content: string): Promise<void> {
   return invoke("write_file_content", { path, content });
 }
@@ -171,6 +175,10 @@ export function writeFileContentOverwrite(path: string, content: string): Promis
 
 export function getFileExt(path: string): Promise<string> {
   return invoke("get_file_ext", { path });
+}
+
+export function getFileModifiedMs(path: string): Promise<number | null> {
+  return invoke("get_file_modified_ms", { path });
 }
 
 export function fetchRemoteHtml(url: string): Promise<string> {
