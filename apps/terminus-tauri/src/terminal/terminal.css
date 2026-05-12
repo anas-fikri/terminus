@@ -9,11 +9,11 @@
 .pty-wrap {
   flex: 1;
   overflow: hidden;
-  background: #0d1117;
+  background: #20252b;
 }
 
 @media (prefers-color-scheme: light) {
-  .pty-wrap { background: #f6f8fa; }
+  .pty-wrap { background: #f7f3ee; }
 }
 
 .pty-wrap .xterm {
@@ -45,7 +45,7 @@
 
 .pty-settings-panel--open {
   display: block;
-  max-height: 100px;
+  max-height: 180px;
 }
 
 .pty-settings-grid {
@@ -75,6 +75,13 @@
 
 .pty-settings-input:hover {
   border-color: var(--color-accent);
+}
+
+#pty-keep-colors {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
 }
 
 /* Settings toggle button */

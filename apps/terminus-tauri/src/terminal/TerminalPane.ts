@@ -16,42 +16,111 @@ interface TerminalSettings {
   fontFamily: string;
   bgColor?: string;
   fgColor?: string;
+  themePreset?: ThemePreset;
+  keepCustomColorsOnPreset?: boolean;
 }
+
+type ThemePreset = "soft" | "warm" | "mint";
+
+const DEFAULT_THEME_PRESET: ThemePreset = "soft";
 
 function isDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-function buildTheme(customBg?: string, customFg?: string) {
-  if (isDark()) {
-    // Pastel dark theme - soft gray background with good contrast
+function presetTheme(preset: ThemePreset, dark: boolean) {
+  if (dark) {
+    if (preset === "warm") {
+      return {
+        background: "#2a2421",
+        foreground: "#e8ddd3",
+        cursor: "#e0b387",
+        selectionBackground: "rgba(224,179,135,0.22)",
+        black: "#4f433d", red: "#d7aaa0", green: "#b8c9a4",
+        yellow: "#ddc19c", blue: "#b0bfd8", magenta: "#cdb2d8",
+        cyan: "#aacac5", white: "#d8cec5",
+        brightBlack: "#73655d", brightRed: "#e5bdb4", brightGreen: "#c8d9b6",
+        brightYellow: "#e7d2b4", brightBlue: "#c1cee3", brightMagenta: "#dbc7e4",
+        brightCyan: "#bddcd7", brightWhite: "#f0e8e1",
+      };
+    }
+    if (preset === "mint") {
+      return {
+        background: "#1f2a2a",
+        foreground: "#d6e6e2",
+        cursor: "#9acfc4",
+        selectionBackground: "rgba(154,207,196,0.24)",
+        black: "#425454", red: "#d4a7ac", green: "#9fc9b0",
+        yellow: "#d7cf9f", blue: "#a4c0d8", magenta: "#c1b3d7",
+        cyan: "#8fcac1", white: "#c9d7d4",
+        brightBlack: "#657978", brightRed: "#e2bac0", brightGreen: "#b6dbc6",
+        brightYellow: "#e2dcb8", brightBlue: "#bad0e5", brightMagenta: "#d2c4e4",
+        brightCyan: "#addcd5", brightWhite: "#e6f0ee",
+      };
+    }
     return {
-      background: customBg ?? "#1a1a1e",  // Soft dark gray pastel
-      foreground: customFg ?? "#e8e8e8",  // Soft white
-      cursor: "#a8d8ff",
-      selectionBackground: "rgba(168,216,255,0.2)",
-      black: "#3a3a3e", red: "#ff9999", green: "#99ff99",
-      yellow: "#ffdd99", blue: "#99ccff", magenta: "#dd99ff",
-      cyan: "#99ffdd", white: "#d0d0d0",
-      brightBlack: "#666666", brightRed: "#ffb3b3", brightGreen: "#b3ffb3",
-      brightYellow: "#ffffb3", brightBlue: "#b3ddff", brightMagenta: "#ffb3ff",
-      brightCyan: "#b3ffff", brightWhite: "#f0f0f0",
-    };
-  } else {
-    // Pastel light theme - soft beige/cream background
-    return {
-      background: customBg ?? "#fef9f3",  // Warm cream pastel
-      foreground: customFg ?? "#333333",  // Soft dark gray
-      cursor: "#0066cc",
-      selectionBackground: "rgba(51,102,204,0.12)",
-      black: "#555555", red: "#cc6666", green: "#66aa66",
-      yellow: "#ccaa44", blue: "#6688dd", magenta: "#aa66cc",
-      cyan: "#66aaaa", white: "#cccccc",
-      brightBlack: "#888888", brightRed: "#ff9999", brightGreen: "#99dd99",
-      brightYellow: "#ffdd77", brightBlue: "#99bbff", brightMagenta: "#dd99ff",
-      brightCyan: "#99dddd", brightWhite: "#ffffff",
+      background: "#20252b",
+      foreground: "#d8dee6",
+      cursor: "#9fc2e8",
+      selectionBackground: "rgba(159,194,232,0.22)",
+      black: "#424a52", red: "#d8a6a6", green: "#a7c5a6",
+      yellow: "#d8c5a1", blue: "#a8bdd8", magenta: "#c7b0d8",
+      cyan: "#9fc7c3", white: "#c8ced6",
+      brightBlack: "#66707a", brightRed: "#e5b9b9", brightGreen: "#bdd9bc",
+      brightYellow: "#e4d3b6", brightBlue: "#bfd0e5", brightMagenta: "#d6c3e4",
+      brightCyan: "#b8d9d6", brightWhite: "#e7ebf0",
     };
   }
+
+  if (preset === "warm") {
+    return {
+      background: "#f8f1e6",
+      foreground: "#4b4038",
+      cursor: "#b48656",
+      selectionBackground: "rgba(180,134,86,0.16)",
+      black: "#6a5e55", red: "#c9978f", green: "#92b088",
+      yellow: "#c7a972", blue: "#8fa7c4", magenta: "#ae94bf",
+      cyan: "#88b2ab", white: "#d7ccbf",
+      brightBlack: "#8f8177", brightRed: "#ddafa7", brightGreen: "#a8c39f",
+      brightYellow: "#dbc396", brightBlue: "#a8bdd5", brightMagenta: "#c0afd3",
+      brightCyan: "#a3c8c2", brightWhite: "#fefaf3",
+    };
+  }
+  if (preset === "mint") {
+    return {
+      background: "#eef6f3",
+      foreground: "#36504a",
+      cursor: "#5f9f93",
+      selectionBackground: "rgba(95,159,147,0.16)",
+      black: "#5c706b", red: "#bf8f95", green: "#7fae95",
+      yellow: "#b9ae79", blue: "#87a9c2", magenta: "#a291c0",
+      cyan: "#70a9a1", white: "#cddbd6",
+      brightBlack: "#80938f", brightRed: "#d2a7ae", brightGreen: "#99c1ad",
+      brightYellow: "#cdc59b", brightBlue: "#a3bfd5", brightMagenta: "#b8abd1",
+      brightCyan: "#8dc0b9", brightWhite: "#fbfefd",
+    };
+  }
+  return {
+    background: "#f7f3ee",
+    foreground: "#34404d",
+    cursor: "#5f88b6",
+    selectionBackground: "rgba(95,136,182,0.14)",
+    black: "#5b646e", red: "#c58f8f", green: "#8fb58c",
+    yellow: "#c6ad81", blue: "#8ea8c8", magenta: "#b09ac5",
+    cyan: "#88b6b1", white: "#d6d0c8",
+    brightBlack: "#808992", brightRed: "#d9aaaa", brightGreen: "#a7cda4",
+    brightYellow: "#d9c29f", brightBlue: "#abc0db", brightMagenta: "#c3b1d7",
+    brightCyan: "#a5ceca", brightWhite: "#faf8f4",
+  };
+}
+
+function buildTheme(customBg?: string, customFg?: string, preset: ThemePreset = DEFAULT_THEME_PRESET) {
+  const base = presetTheme(preset, isDark());
+  return {
+    ...base,
+    background: customBg ?? base.background,
+    foreground: customFg ?? base.foreground,
+  };
 }
 
 export class TerminalPane {
@@ -87,6 +156,14 @@ export class TerminalPane {
             <input class="pty-settings-input" type="color" id="pty-bg" />
             <label>FG Color</label>
             <input class="pty-settings-input" type="color" id="pty-fg" />
+            <label>Theme</label>
+            <select class="pty-settings-input" id="pty-theme">
+              <option value="soft">Pastel Soft</option>
+              <option value="warm">Pastel Warm</option>
+              <option value="mint">Pastel Mint</option>
+            </select>
+            <label>Keep custom</label>
+            <input type="checkbox" id="pty-keep-colors" />
           </div>
         </div>
         <button class="pty-settings-toggle" id="pty-settings-btn" title="Terminal Settings">⚙</button>
@@ -97,7 +174,7 @@ export class TerminalPane {
     const settingsBtn = this.el.querySelector<HTMLButtonElement>("#pty-settings-btn")!;
 
     // Load settings from localStorage
-    const settings = this.loadSettings();
+    let settings = this.loadSettings();
     
     this.term = new Terminal({
       fontFamily: settings.fontFamily,
@@ -108,7 +185,7 @@ export class TerminalPane {
       cursorStyle: "block",
       allowTransparency: false,
       scrollback: 5000,
-      theme: buildTheme(settings.bgColor, settings.fgColor),
+      theme: buildTheme(settings.bgColor, settings.fgColor, settings.themePreset),
       cols: 80,  // Force default cols to avoid 1
       rows: 24,  // Force default rows
     });
@@ -154,6 +231,16 @@ export class TerminalPane {
     const lhInput = this.el.querySelector<HTMLInputElement>("#pty-lh")!;
     const bgInput = this.el.querySelector<HTMLInputElement>("#pty-bg")!;
     const fgInput = this.el.querySelector<HTMLInputElement>("#pty-fg")!;
+    const themeInput = this.el.querySelector<HTMLSelectElement>("#pty-theme")!;
+    const keepColorsInput = this.el.querySelector<HTMLInputElement>("#pty-keep-colors")!;
+
+    const initialTheme = buildTheme(settings.bgColor, settings.fgColor, settings.themePreset);
+    fsInput.value = String(settings.fontSize);
+    lhInput.value = String(settings.lineHeight);
+    bgInput.value = initialTheme.background;
+    fgInput.value = initialTheme.foreground;
+    themeInput.value = settings.themePreset ?? DEFAULT_THEME_PRESET;
+    keepColorsInput.checked = settings.keepCustomColorsOnPreset ?? false;
 
     fsInput.addEventListener("change", () => {
       const sz = parseInt(fsInput.value);
@@ -171,19 +258,50 @@ export class TerminalPane {
 
     bgInput.addEventListener("change", () => {
       const bg = bgInput.value;
-      this.term.options.theme = buildTheme(bg, settings.fgColor);
+      settings = { ...settings, bgColor: bg };
+      this.term.options.theme = buildTheme(bg, settings.fgColor, settings.themePreset);
       this.saveSettings({ bgColor: bg });
     });
 
     fgInput.addEventListener("change", () => {
       const fg = fgInput.value;
-      this.term.options.theme = buildTheme(settings.bgColor, fg);
+      settings = { ...settings, fgColor: fg };
+      this.term.options.theme = buildTheme(settings.bgColor, fg, settings.themePreset);
       this.saveSettings({ fgColor: fg });
+    });
+
+    themeInput.addEventListener("change", () => {
+      const preset = themeInput.value as ThemePreset;
+      const keepCustom = keepColorsInput.checked;
+      const nextBg = keepCustom ? settings.bgColor : undefined;
+      const nextFg = keepCustom ? settings.fgColor : undefined;
+      settings = { ...settings, themePreset: preset, bgColor: nextBg, fgColor: nextFg };
+      const nextTheme = buildTheme(nextBg, nextFg, preset);
+      this.term.options.theme = nextTheme;
+      bgInput.value = nextTheme.background;
+      fgInput.value = nextTheme.foreground;
+      this.saveSettings({ themePreset: preset, bgColor: nextBg, fgColor: nextFg });
+    });
+
+    keepColorsInput.addEventListener("change", () => {
+      const keepCustom = keepColorsInput.checked;
+      if (keepCustom) {
+        settings = { ...settings, keepCustomColorsOnPreset: true, bgColor: bgInput.value, fgColor: fgInput.value };
+        this.saveSettings({ keepCustomColorsOnPreset: true, bgColor: bgInput.value, fgColor: fgInput.value });
+        return;
+      }
+      const preset = settings.themePreset ?? DEFAULT_THEME_PRESET;
+      const nextTheme = buildTheme(undefined, undefined, preset);
+      settings = { ...settings, keepCustomColorsOnPreset: false, bgColor: undefined, fgColor: undefined };
+      this.term.options.theme = nextTheme;
+      bgInput.value = nextTheme.background;
+      fgInput.value = nextTheme.foreground;
+      this.saveSettings({ keepCustomColorsOnPreset: false, bgColor: undefined, fgColor: undefined });
     });
 
     // Follow system theme changes live
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-      this.term.options.theme = buildTheme(settings.bgColor, settings.fgColor);
+      this.term.options.theme = buildTheme(settings.bgColor, settings.fgColor, settings.themePreset);
     });
   }
 
@@ -366,6 +484,8 @@ export class TerminalPane {
       fontFamily: s.fontFamily ?? '"JetBrains Mono", Menlo, "Fira Code", monospace',
       bgColor: s.bgColor ?? undefined,
       fgColor: s.fgColor ?? undefined,
+      themePreset: s.themePreset ?? DEFAULT_THEME_PRESET,
+      keepCustomColorsOnPreset: s.keepCustomColorsOnPreset ?? false,
     };
   }
 
