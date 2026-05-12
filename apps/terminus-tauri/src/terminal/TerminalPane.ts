@@ -3,6 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { ptySpawn, ptyWrite, ptyResize, ptyKill, onPtyData, onPtyExit } from "../ipc/bridge";
 import { readVersionedStorage, writeVersionedStorage } from "../utils/versionedStorage";
+import { ActivityPanel } from "../activity/ActivityPanel";
 import type { InspectSubmission } from "../browser/BrowserPane";
 import "@xterm/xterm/css/xterm.css";
 import "./terminal.css";
@@ -262,6 +263,7 @@ export class TerminalPane {
       this.pendingCommands.push(command);
       return;
     }
+    ActivityPanel.trackCommand(command, this.workspace);
     ptyWrite(this.sessionId, `${command}\r`).catch(() => {});
     this.term.focus();
   }

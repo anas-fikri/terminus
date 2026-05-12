@@ -64,6 +64,9 @@ export class ViewerPane {
   private rawScrollTop = 0;
   private editScrollTop = 0;
   private editCursorPos = 0;
+  private findMatches: Array<{ start: number; end: number }> = [];
+  private activeFindMatchIndex = -1;
+  private findCaseSensitive = false;
 
   constructor(el: HTMLElement, onAttach?: (attachment: ViewerAttachment) => void) {
     this.el = el;
@@ -254,6 +257,17 @@ export class ViewerPane {
             <button class="viewer__btn" id="vwr-edit-mode-cancel">Cancel</button>
           </div>
         </div>
+        <div class="viewer__edit-find" id="vwr-edit-find" style="display:none">
+          <input class="viewer__edit-find-input" id="vwr-edit-find-query" type="text" placeholder="Find (Cmd/Ctrl+F)" />
+          <input class="viewer__edit-find-input" id="vwr-edit-replace-query" type="text" placeholder="Replace" />
+          <button class="viewer__btn" id="vwr-edit-find-case" title="Toggle case sensitive">Aa</button>
+          <button class="viewer__btn" id="vwr-edit-find-prev" title="Previous match">↑</button>
+          <button class="viewer__btn" id="vwr-edit-find-next" title="Next match">↓</button>
+          <button class="viewer__btn" id="vwr-edit-replace-one">Replace</button>
+          <button class="viewer__btn" id="vwr-edit-replace-all">Replace All</button>
+          <button class="viewer__btn" id="vwr-edit-find-close" title="Close">✕</button>
+          <span class="viewer__edit-find-status" id="vwr-edit-find-status"></span>
+        </div>
         <textarea class="viewer__edit-mode-textarea" id="vwr-edit-mode-content"></textarea>
         <div class="viewer__edit-mode-error" id="vwr-edit-mode-error"></div>
       </div>
@@ -265,12 +279,58 @@ export class ViewerPane {
 
     this.contentEl.querySelector("#vwr-edit-mode-save")!.addEventListener("click", () => void this.saveEditMode());
     this.contentEl.querySelector("#vwr-edit-mode-cancel")!.addEventListener("click", () => this.cancelEditMode());
+    this.contentEl.querySelector("#vwr-edit-find-next")!.addEventListener("click", () => this.gotoFindMatch(1));
+    this.contentEl.querySelector("#vwr-edit-find-prev")!.addEventListener("click", () => this.gotoFindMatch(-1));
+    this.contentEl.querySelector("#vwr-edit-replace-one")!.addEventListener("click", () => this.replaceCurrentMatch());
+    this.contentEl.querySelector("#vwr-edit-replace-all")!.addEventListener("click", () => this.replaceAllMatches());
+    this.contentEl.querySelector("#vwr-edit-find-close")!.addEventListener("click", () => this.hideFindPanel());
+    this.contentEl.querySelector("#vwr-edit-find-case")!.addEventListener("click", () => {
+      this.findCaseSensitive = !this.findCaseSensitive;
+      this.updateFindCaseButton();
+      this.refreshFindMatches(true);
+    });
+
+    const findInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-find-query")!;
+    const replaceInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-replace-query")!;
+    findInput.addEventListener("input", () => this.refreshFindMatches(true));
+    replaceInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.replaceCurrentMatch();
+      }
+    });
+    findInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.gotoFindMatch(e.shiftKey ? -1 : 1);
+      }
+    });
+    this.updateFindCaseButton();
+    this.refreshFindMatches(false);
 
     // Save on Ctrl+S and support Tab/Shift+Tab indentation inside textarea.
     const saveHandler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         void this.saveEditMode();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        this.showFindPanel("find");
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === "h" || e.key === "H")) {
+        e.preventDefault();
+        this.showFindPanel("replace");
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === "g" || e.key === "G")) {
+        e.preventDefault();
+        this.gotoFindMatch(e.shiftKey ? -1 : 1);
         return;
       }
 
@@ -309,6 +369,174 @@ export class ViewerPane {
       textarea.selectionEnd = Math.max(textarea.selectionStart, end - (selectedBlock.length - outdentedBlock.length));
     };
     this.editContentEl.addEventListener("keydown", saveHandler);
+  }
+
+  private showFindPanel(mode: "find" | "replace"): void {
+    const panel = this.contentEl.querySelector<HTMLElement>("#vwr-edit-find");
+    const findInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-find-query");
+    const replaceInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-replace-query");
+    if (!panel || !findInput || !replaceInput) return;
+
+    panel.style.display = "grid";
+    const selected = this.editContentEl.value.slice(this.editContentEl.selectionStart ?? 0, this.editContentEl.selectionEnd ?? 0);
+    if (selected && !findInput.value) {
+      findInput.value = selected;
+    }
+    this.refreshFindMatches(true);
+    if (mode === "replace") {
+      replaceInput.focus();
+      replaceInput.select();
+    } else {
+      findInput.focus();
+      findInput.select();
+    }
+  }
+
+  private hideFindPanel(): void {
+    const panel = this.contentEl.querySelector<HTMLElement>("#vwr-edit-find");
+    if (panel) panel.style.display = "none";
+    this.editContentEl.focus();
+  }
+
+  private updateFindCaseButton(): void {
+    const caseBtn = this.contentEl.querySelector<HTMLButtonElement>("#vwr-edit-find-case");
+    if (!caseBtn) return;
+    caseBtn.classList.toggle("viewer__btn--active", this.findCaseSensitive);
+  }
+
+  private refreshFindMatches(selectFirst: boolean): void {
+    const findInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-find-query");
+    if (!findInput) return;
+    const query = findInput.value;
+    const text = this.editContentEl.value;
+    this.findMatches = this.collectMatches(text, query, this.findCaseSensitive);
+
+    if (this.findMatches.length === 0) {
+      this.activeFindMatchIndex = -1;
+      this.updateFindStatus();
+      return;
+    }
+
+    if (selectFirst || this.activeFindMatchIndex < 0 || this.activeFindMatchIndex >= this.findMatches.length) {
+      this.activeFindMatchIndex = 0;
+    }
+    this.applyActiveMatchSelection();
+    this.updateFindStatus();
+  }
+
+  private collectMatches(text: string, query: string, caseSensitive: boolean): Array<{ start: number; end: number }> {
+    if (!query) return [];
+
+    const source = caseSensitive ? text : text.toLowerCase();
+    const needle = caseSensitive ? query : query.toLowerCase();
+    const matches: Array<{ start: number; end: number }> = [];
+
+    let from = 0;
+    while (from <= source.length - needle.length) {
+      const idx = source.indexOf(needle, from);
+      if (idx === -1) break;
+      matches.push({ start: idx, end: idx + needle.length });
+      from = idx + Math.max(needle.length, 1);
+    }
+
+    return matches;
+  }
+
+  private gotoFindMatch(direction: 1 | -1): void {
+    const panel = this.contentEl.querySelector<HTMLElement>("#vwr-edit-find");
+    if (!panel || panel.style.display === "none") {
+      this.showFindPanel("find");
+      return;
+    }
+    if (this.findMatches.length === 0) {
+      this.updateFindStatus();
+      return;
+    }
+
+    const len = this.findMatches.length;
+    this.activeFindMatchIndex = (this.activeFindMatchIndex + direction + len) % len;
+    this.applyActiveMatchSelection();
+    this.updateFindStatus();
+  }
+
+  private applyActiveMatchSelection(): void {
+    if (this.activeFindMatchIndex < 0 || this.activeFindMatchIndex >= this.findMatches.length) {
+      return;
+    }
+    const m = this.findMatches[this.activeFindMatchIndex];
+    this.editContentEl.focus();
+    this.editContentEl.selectionStart = m.start;
+    this.editContentEl.selectionEnd = m.end;
+    this.scrollTextareaSelectionIntoView();
+  }
+
+  private scrollTextareaSelectionIntoView(): void {
+    const textarea = this.editContentEl;
+    const before = textarea.value.slice(0, textarea.selectionStart ?? 0);
+    const line = before.split("\n").length - 1;
+    const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight || "20") || 20;
+    const targetTop = line * lineHeight;
+    const viewTop = textarea.scrollTop;
+    const viewBottom = viewTop + textarea.clientHeight;
+
+    if (targetTop < viewTop || targetTop > viewBottom - lineHeight * 2) {
+      textarea.scrollTop = Math.max(0, targetTop - textarea.clientHeight / 3);
+    }
+  }
+
+  private updateFindStatus(): void {
+    const status = this.contentEl.querySelector<HTMLElement>("#vwr-edit-find-status");
+    if (!status) return;
+    if (this.findMatches.length === 0) {
+      const findInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-find-query");
+      status.textContent = findInput?.value ? "No match" : "";
+      return;
+    }
+    status.textContent = `${this.activeFindMatchIndex + 1}/${this.findMatches.length}`;
+  }
+
+  private replaceCurrentMatch(): void {
+    if (this.findMatches.length === 0 || this.activeFindMatchIndex < 0) {
+      return;
+    }
+
+    const replaceInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-replace-query");
+    const replacement = replaceInput?.value ?? "";
+    const match = this.findMatches[this.activeFindMatchIndex];
+    const value = this.editContentEl.value;
+    this.editContentEl.value = `${value.slice(0, match.start)}${replacement}${value.slice(match.end)}`;
+    this.editContentEl.selectionStart = match.start;
+    this.editContentEl.selectionEnd = match.start + replacement.length;
+    this.refreshFindMatches(false);
+  }
+
+  private replaceAllMatches(): void {
+    const findInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-find-query");
+    const replaceInput = this.contentEl.querySelector<HTMLInputElement>("#vwr-edit-replace-query");
+    const query = findInput?.value ?? "";
+    if (!query) return;
+
+    const replacement = replaceInput?.value ?? "";
+    const value = this.editContentEl.value;
+    const matches = this.collectMatches(value, query, this.findCaseSensitive);
+    if (matches.length === 0) {
+      this.refreshFindMatches(false);
+      return;
+    }
+
+    let offset = 0;
+    let next = value;
+    for (const m of matches) {
+      const start = m.start + offset;
+      const end = m.end + offset;
+      next = `${next.slice(0, start)}${replacement}${next.slice(end)}`;
+      offset += replacement.length - (m.end - m.start);
+    }
+
+    this.editContentEl.value = next;
+    this.editContentEl.selectionStart = 0;
+    this.editContentEl.selectionEnd = 0;
+    this.refreshFindMatches(false);
   }
 
   private async saveEditMode(): Promise<void> {

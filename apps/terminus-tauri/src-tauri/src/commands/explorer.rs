@@ -16,6 +16,57 @@ pub fn get_tree(workspace: String) -> Result<TreeNode, String> {
     build_tree(Path::new(&workspace), 0, 6).map_err(|e| e.to_string())
 }
 
+/// Delete one or many filesystem paths.
+/// Directories are removed recursively.
+#[tauri::command]
+pub fn delete_paths(paths: Vec<String>) -> Result<usize, String> {
+    if paths.is_empty() {
+        return Ok(0);
+    }
+
+    let mut deleted = 0usize;
+    for path in paths {
+        let target = Path::new(&path);
+        if !target.exists() {
+            continue;
+        }
+
+        if target.is_dir() {
+            fs::remove_dir_all(target)
+                .map_err(|e| format!("Failed to delete directory {}: {e}", target.display()))?;
+        } else {
+            fs::remove_file(target)
+                .map_err(|e| format!("Failed to delete file {}: {e}", target.display()))?;
+        }
+        deleted += 1;
+    }
+
+    Ok(deleted)
+}
+
+/// Rename or move a file system path.
+#[tauri::command]
+pub fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
+    let from = Path::new(&old_path);
+    let to = Path::new(&new_path);
+
+    if !from.exists() {
+        return Err(format!("Source path does not exist: {}", from.display()));
+    }
+
+    if to.exists() {
+        return Err(format!("Target path already exists: {}", to.display()));
+    }
+
+    if let Some(parent) = to.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create target parent {}: {e}", parent.display()))?;
+    }
+
+    fs::rename(from, to)
+        .map_err(|e| format!("Failed to rename {} -> {}: {e}", from.display(), to.display()))
+}
+
 fn build_tree(path: &Path, depth: usize, max_depth: usize) -> anyhow::Result<TreeNode> {
     let name = path
         .file_name()

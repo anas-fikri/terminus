@@ -7,6 +7,7 @@ import { BrowserPane, type InspectSubmission } from "../browser/BrowserPane";
 import { ProjectsPanel } from "../projects/ProjectsPanel";
 import { GitPanel } from "../git/GitPanel";
 import { ExtensionsPanel, type ExtensionLaunchRequest } from "../extensions/ExtensionsPanel";
+import { ActivityPanel } from "../activity/ActivityPanel";
 import { getTree, readFileContent, type TreeNode } from "../ipc/bridge";
 import { attachResizeHandle } from "../utils/resize";
 import { WorkspaceLockManager } from "../utils/workspaceLock";
@@ -67,10 +68,12 @@ export class Shell {
                 <button class="shell__sidepanel-tab shell__sidepanel-tab--active" id="side-tab-explorer">Files</button>
                 <button class="shell__sidepanel-tab" id="side-tab-git">Git</button>
                 <button class="shell__sidepanel-tab" id="side-tab-extensions">Extensions</button>
+                <button class="shell__sidepanel-tab" id="side-tab-activity">Activity</button>
               </div>
               <div class="shell__sidepanel-body shell__sidepanel-body--active" id="slot-explorer"></div>
               <div class="shell__sidepanel-body" id="slot-git"></div>
               <div class="shell__sidepanel-body" id="slot-extensions"></div>
+              <div class="shell__sidepanel-body" id="slot-activity"></div>
             </div>
           </div>
         </div>
@@ -113,6 +116,9 @@ export class Shell {
       (request) => this.openExtensionSession(request)
     );
 
+    // ActivityPanel manages its own lifetime via event subscriptions
+    new ActivityPanel(this.root.querySelector("#slot-activity")!);
+
     this.statusBar = new StatusBar(this.root.querySelector("#slot-statusbar")!);
 
     // Attach resize handles
@@ -136,22 +142,27 @@ export class Shell {
     this.root.querySelector("#side-tab-explorer")?.addEventListener("click", () => this.setSidePanelMode("explorer"));
     this.root.querySelector("#side-tab-git")?.addEventListener("click", () => this.setSidePanelMode("git"));
     this.root.querySelector("#side-tab-extensions")?.addEventListener("click", () => this.setSidePanelMode("extensions"));
+    this.root.querySelector("#side-tab-activity")?.addEventListener("click", () => this.setSidePanelMode("activity"));
   }
 
-  private setSidePanelMode(mode: "explorer" | "git" | "extensions"): void {
+  private setSidePanelMode(mode: "explorer" | "git" | "extensions" | "activity"): void {
     const explorerTab = this.root.querySelector<HTMLElement>("#side-tab-explorer");
     const gitTab = this.root.querySelector<HTMLElement>("#side-tab-git");
     const extensionsTab = this.root.querySelector<HTMLElement>("#side-tab-extensions");
+    const activityTab = this.root.querySelector<HTMLElement>("#side-tab-activity");
     const explorerBody = this.root.querySelector<HTMLElement>("#slot-explorer");
     const gitBody = this.root.querySelector<HTMLElement>("#slot-git");
     const extensionsBody = this.root.querySelector<HTMLElement>("#slot-extensions");
+    const activityBody = this.root.querySelector<HTMLElement>("#slot-activity");
 
     explorerTab?.classList.toggle("shell__sidepanel-tab--active", mode === "explorer");
     gitTab?.classList.toggle("shell__sidepanel-tab--active", mode === "git");
     extensionsTab?.classList.toggle("shell__sidepanel-tab--active", mode === "extensions");
+    activityTab?.classList.toggle("shell__sidepanel-tab--active", mode === "activity");
     explorerBody?.classList.toggle("shell__sidepanel-body--active", mode === "explorer");
     gitBody?.classList.toggle("shell__sidepanel-body--active", mode === "git");
     extensionsBody?.classList.toggle("shell__sidepanel-body--active", mode === "extensions");
+    activityBody?.classList.toggle("shell__sidepanel-body--active", mode === "activity");
 
     if (mode === "git") {
       void this.gitPanel.load();

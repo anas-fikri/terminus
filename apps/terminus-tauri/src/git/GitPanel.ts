@@ -1,6 +1,12 @@
 import { getGitStatus, runGitOp } from "../ipc/bridge";
 import "./git.css";
 
+interface ParsedStatus {
+  staged: string[];
+  unstaged: string[];
+  untracked: string[];
+}
+
 export class GitPanel {
   private el: HTMLElement;
   private workspace = ".";
@@ -50,20 +56,39 @@ export class GitPanel {
         .filter(Boolean)
         .slice(0, 200);
 
-      const list = lines.length
-        ? lines.map((line) => `<li class="gitpanel__item">${escHtml(line)}</li>`).join("")
-        : `<li class="gitpanel__item gitpanel__item--clean">Working tree clean</li>`;
+      const parsed = parseStatusLines(lines);
+      const stagedList = renderStatusGroup(parsed.staged, "No staged changes", "gitpanel__item--staged");
+      const unstagedList = renderStatusGroup(parsed.unstaged, "No unstaged changes", "gitpanel__item--unstaged");
+      const untrackedList = renderStatusGroup(parsed.untracked, "No untracked files", "gitpanel__item--untracked");
 
       this.el.innerHTML = `
         <div class="gitpanel">
           <div class="gitpanel__summary">
-            <div><strong>${escHtml(status.branch || "-")}</strong></div>
-            <div class="gitpanel__meta">+${status.ahead} / -${status.behind} · modified ${status.modified} · untracked ${status.untracked}</div>
+            <div class="gitpanel__branch"><strong>${escHtml(status.branch || "-")}</strong></div>
+            <div class="gitpanel__chips">
+              <span class="gitpanel__chip">Ahead ${status.ahead}</span>
+              <span class="gitpanel__chip">Behind ${status.behind}</span>
+              <span class="gitpanel__chip">Modified ${status.modified}</span>
+              <span class="gitpanel__chip">Untracked ${status.untracked}</span>
+            </div>
             <div class="gitpanel__meta">Repo: ${escHtml(repoRoot)}</div>
             <div class="gitpanel__meta">Git user: ${escHtml(userName)} &lt;${escHtml(userEmail)}&gt;</div>
           </div>
-          <div class="gitpanel__section-title">Changed files</div>
-          <ul class="gitpanel__list">${list}</ul>
+          <div class="gitpanel__legend">
+            <span class="gitpanel__legend-badge gitpanel__legend-badge--staged">&#9646;</span> Staged &nbsp;
+            <span class="gitpanel__legend-badge gitpanel__legend-badge--unstaged">&#9646;</span> Unstaged &nbsp;
+            <span class="gitpanel__legend-badge gitpanel__legend-badge--untracked">&#9646;</span> Untracked
+          </div>
+
+          <div class="gitpanel__section-title">Staged</div>
+          <ul class="gitpanel__list gitpanel__list--section">${stagedList}</ul>
+
+          <div class="gitpanel__section-title">Unstaged</div>
+          <ul class="gitpanel__list gitpanel__list--section">${unstagedList}</ul>
+
+          <div class="gitpanel__section-title">Untracked</div>
+          <ul class="gitpanel__list gitpanel__list--section">${untrackedList}</ul>
+
           <div class="gitpanel__section-title">Remotes</div>
           <ul class="gitpanel__list gitpanel__list--compact">${remotes || `<li class="gitpanel__item gitpanel__item--clean">No remotes configured</li>`}</ul>
           <div class="gitpanel__footer">
@@ -91,4 +116,36 @@ function escHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;");
+}
+
+function parseStatusLines(lines: string[]): ParsedStatus {
+  const staged: string[] = [];
+  const unstaged: string[] = [];
+  const untracked: string[] = [];
+
+  for (const line of lines) {
+    const x = line[0] ?? " ";
+    const y = line[1] ?? " ";
+    const file = line.slice(3).trim() || line;
+
+    if (x === "?" && y === "?") {
+      untracked.push(`?? ${file}`);
+      continue;
+    }
+    if (x !== " ") {
+      staged.push(`${x} ${file}`);
+    }
+    if (y !== " ") {
+      unstaged.push(`${y} ${file}`);
+    }
+  }
+
+  return { staged, unstaged, untracked };
+}
+
+function renderStatusGroup(items: string[], emptyText: string, cls: string): string {
+  if (items.length === 0) {
+    return `<li class="gitpanel__item gitpanel__item--clean">${escHtml(emptyText)}</li>`;
+  }
+  return items.map((line) => `<li class="gitpanel__item ${cls}">${escHtml(line)}</li>`).join("");
 }

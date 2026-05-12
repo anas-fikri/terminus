@@ -115,6 +115,14 @@ export function getTree(workspace: string): Promise<TreeNode> {
   return invoke("get_tree", { workspace });
 }
 
+export function deletePaths(paths: string[]): Promise<number> {
+  return invoke("delete_paths", { paths });
+}
+
+export function renamePath(oldPath: string, newPath: string): Promise<void> {
+  return invoke("rename_path", { oldPath, newPath });
+}
+
 // ────────── Git ──────────
 
 export function runGitOp(workspace: string, subcommand: string): Promise<string> {

@@ -23,6 +23,8 @@ pub fn run() {
             commands::projects::update_project_settings,
             // Explorer
             commands::explorer::get_tree,
+            commands::explorer::delete_paths,
+            commands::explorer::rename_path,
             // Files
             commands::files::read_file_content,
             commands::files::read_file_bytes,

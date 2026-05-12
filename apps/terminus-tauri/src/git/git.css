@@ -13,6 +13,42 @@
   color: var(--color-text-primary);
 }
 
+.gitpanel__branch {
+  margin-bottom: 6px;
+}
+
+.gitpanel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.gitpanel__chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 10px;
+}
+
+.gitpanel__legend {
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.gitpanel__legend-badge {
+  font-size: 14px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.gitpanel__legend-badge--staged    { color: var(--color-success); }
+.gitpanel__legend-badge--unstaged  { color: var(--color-warning); }
+.gitpanel__legend-badge--untracked { color: var(--color-accent); }
+
 .gitpanel__meta {
   margin-top: 2px;
   font-size: 11px;
@@ -26,6 +62,11 @@
   overflow: auto;
   flex: 1;
   min-height: 0;
+}
+
+.gitpanel__list--section {
+  flex: 0;
+  max-height: 120px;
 }
 
 .gitpanel__list--compact {
@@ -50,6 +91,22 @@
   padding: 2px 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Status item — colored left-border badge; text stays default for readability */
+.gitpanel__item--staged {
+  border-left: 3px solid var(--color-success);
+  padding-left: 6px;
+}
+
+.gitpanel__item--unstaged {
+  border-left: 3px solid var(--color-warning);
+  padding-left: 6px;
+}
+
+.gitpanel__item--untracked {
+  border-left: 3px solid var(--color-accent);
+  padding-left: 6px;
 }
 
 .gitpanel__item--clean {
