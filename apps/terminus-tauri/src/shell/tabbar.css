@@ -109,3 +109,7 @@
   transition: background 0.1s, color 0.1s;
 }
 .tabbar__action:hover { background: var(--color-bg-elevated); color: var(--color-text-primary); border-color: var(--color-border); }
+.tabbar__action--off {
+  opacity: 0.5;
+  color: var(--color-text-muted);
+}

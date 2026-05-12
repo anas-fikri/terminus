@@ -44,7 +44,10 @@ export class Shell {
   private projectsPanel!: ProjectsPanel;
   private statusBar!: StatusBar;
   private mainEl!: HTMLElement;
-  private inspectorVisible = true;
+  private leftSidebarVisible = true;
+  private rightSidebarVisible = true;
+  private leftResizeHandle?: HTMLElement;
+  private rightResizeHandle?: HTMLElement;
   private readonly workspaceLocks = new WorkspaceLockManager();
 
   constructor(root: HTMLElement) {
@@ -84,7 +87,8 @@ export class Shell {
         onNew: () => this.newSessionTab(),
         onNewViewer: () => this.newViewerTab(),
         onNewBrowser: (url) => this.newBrowserTab(url),
-        onToggleInspector: () => this.toggleInspector(),
+        onToggleLeftSidebar: () => this.toggleLeftSidebar(),
+        onToggleRightSidebar: () => this.toggleRightSidebar(),
         onOpenProject: () => this.projectsPanel.browsePicker(),
         onClose: (id) => this.closeTab(id),
       }
@@ -115,12 +119,13 @@ export class Shell {
     const body = this.root.querySelector<HTMLElement>(".shell__body")!;
     const projectsEl = this.root.querySelector<HTMLElement>("#slot-projects")!;
     const treeEl = this.root.querySelector<HTMLElement>("#slot-tree")!;
-    attachResizeHandle(body, projectsEl, this.mainEl, "horizontal", "terminus-projects-width");
-    attachResizeHandle(body, this.mainEl, treeEl, "horizontal", "terminus-tree-width", "next");
+    this.leftResizeHandle = attachResizeHandle(body, projectsEl, this.mainEl, "horizontal", "terminus-projects-width");
+    this.rightResizeHandle = attachResizeHandle(body, this.mainEl, treeEl, "horizontal", "terminus-tree-width", "next");
 
     // Setup keyboard shortcuts
     this.setupKeyboardShortcuts();
     this.setupSidePanelTabs();
+    this.applySidebarLayout();
     this.workspaceLocks.bindWindowLifecycle();
 
     // Create initial session tab
@@ -179,10 +184,16 @@ export class Shell {
         this.newBrowserTab();
       }
 
-      // Command+Shift+L / Ctrl+Shift+L to toggle inspector
+      // Command+Shift+L / Ctrl+Shift+L to toggle right sidebar
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "l") {
         e.preventDefault();
-        this.toggleInspector();
+        this.toggleRightSidebar();
+      }
+
+      // Command+Shift+P / Ctrl+Shift+P to toggle left sidebar
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        this.toggleLeftSidebar();
       }
 
       // Ctrl+Tab to next tab, Ctrl+Shift+Tab to previous tab
@@ -314,16 +325,32 @@ export class Shell {
   }
 
   private syncTabBar(): void {
-    this.tabBar.setTabs(this.tabs, this.activeTabId ?? "");
+    this.tabBar.setTabs(this.tabs, this.activeTabId ?? "", {
+      leftVisible: this.leftSidebarVisible,
+      rightVisible: this.rightSidebarVisible,
+    });
   }
 
-  // ── Inspector / tree panel toggle ──
+  // ── Sidebars ──
 
-  toggleInspector(): void {
-    this.inspectorVisible = !this.inspectorVisible;
+  toggleLeftSidebar(): void {
+    this.leftSidebarVisible = !this.leftSidebarVisible;
+    this.applySidebarLayout();
+  }
+
+  toggleRightSidebar(): void {
+    this.rightSidebarVisible = !this.rightSidebarVisible;
+    this.applySidebarLayout();
+  }
+
+  private applySidebarLayout(): void {
+    const projectsEl = this.root.querySelector<HTMLElement>("#slot-projects")!;
     const treeEl = this.root.querySelector<HTMLElement>("#slot-tree")!;
-    treeEl.classList.toggle("shell__tree--hidden", !this.inspectorVisible);
-    // Re-show (start visible)
+    projectsEl.classList.toggle("shell__projects--hidden", !this.leftSidebarVisible);
+    treeEl.classList.toggle("shell__tree--hidden", !this.rightSidebarVisible);
+    this.leftResizeHandle?.classList.toggle("resize-handle--hidden", !this.leftSidebarVisible);
+    this.rightResizeHandle?.classList.toggle("resize-handle--hidden", !this.rightSidebarVisible);
+    this.syncTabBar();
   }
 
   // ── Project ──

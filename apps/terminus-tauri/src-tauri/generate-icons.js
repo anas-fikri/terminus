@@ -147,41 +147,25 @@ function drawIcon(size) {
   }
 
   const s = size;
-  const pad = Math.round(s * 0.062); // ~4px at 64
-  const radius = Math.round(s * 0.2);
+  const pad = Math.round(s * 0.08);
+  const radius = Math.round(s * 0.22);
 
-  // Background: dark charcoal #1A1A2E
-  fillRoundedRect(pad, pad, s - pad - 1, s - pad - 1, radius, 0x1A, 0x1A, 0x2E);
+  // Minimal dark tile base
+  fillRoundedRect(pad, pad, s - pad - 1, s - pad - 1, radius, 0x0F, 0x17, 0x2A);
 
-  // Subtle top gradient highlight
-  const headerH = Math.round(s * 0.25);
-  fillRoundedRect(pad, pad, s - pad - 1, pad + headerH, radius, 0x16, 0x21, 0x3E);
+  // Very subtle top highlight for depth
+  const glowH = Math.max(2, Math.round(s * 0.16));
+  fillRoundedRect(pad, pad, s - pad - 1, pad + glowH, radius, 0x1E, 0x29, 0x42, 170);
 
-  // Three window dots in header
-  const dotY = Math.round(pad + headerH * 0.5);
-  const dotR = Math.max(2, Math.round(s * 0.04));
-  const dotSpacing = Math.round(s * 0.1);
-  const dotX0 = pad + Math.round(s * 0.12);
-  fillCircle(dotX0,               dotY, dotR, 0xFF, 0x5F, 0x57); // red
-  fillCircle(dotX0 + dotSpacing,  dotY, dotR, 0xFF, 0xBD, 0x2E); // yellow
-  fillCircle(dotX0 + dotSpacing * 2, dotY, dotR, 0x28, 0xC8, 0x40); // green
+  // Clean prompt mark: >_
+  const markY = Math.round(s * 0.53);
+  const markX = Math.round(s * 0.30);
+  const chevSz = Math.round(s * 0.24);
+  drawChevron(markX, markY, chevSz, 0xF8, 0xFA, 0xFC);
 
-  // Terminal content area: slightly lighter
-  const contentY = pad + headerH + Math.round(s * 0.02);
-  const contentPad = Math.round(s * 0.1);
-  fillRoundedRect(pad + contentPad, contentY, s - pad - contentPad - 1, s - pad - Math.round(s * 0.1) - 1, Math.round(radius * 0.5), 0x0D, 0x11, 0x17);
-
-  // ">" prompt symbol (electric blue)
-  const chevX = pad + contentPad + Math.round(s * 0.1);
-  const chevY = Math.round((contentY + s - pad - Math.round(s * 0.1)) / 2);
-  const chevSz = Math.round(s * 0.28);
-  drawChevron(chevX + chevSz * 0.5, chevY, chevSz, 0x38, 0xBD, 0xF8);
-
-  // Blinking cursor block (cyan)
-  const cursorX = chevX + chevSz + Math.round(s * 0.08);
-  const cursorW = Math.round(s * 0.09);
-  const cursorH = Math.round(s * 0.16);
-  fillRoundedRect(cursorX, chevY - cursorH / 2, cursorX + cursorW, chevY + cursorH / 2, 2, 0x00, 0xD4, 0xFF);
+  const lineStart = markX + Math.round(s * 0.12);
+  const lineEnd = lineStart + Math.round(s * 0.18);
+  hline(lineStart, lineEnd, markY + Math.round(s * 0.01), Math.max(2, Math.round(s * 0.07)), 0x7D, 0xF9, 0xFF);
 
   return pixels;
 }

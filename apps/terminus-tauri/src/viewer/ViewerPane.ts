@@ -16,7 +16,7 @@ mermaid.initialize({
   fontFamily: "system-ui, -apple-system, sans-serif",
   flowchart: {
     useMaxWidth: true,
-    htmlLabels: true,
+    htmlLabels: false,
     curve: "basis",
   },
   er: { useMaxWidth: true },
@@ -35,7 +35,13 @@ export interface ViewerAttachment {
 }
 
 function ext(name: string): string {
-  return name.split(".").pop()?.toLowerCase() ?? "";
+  const parts = name.toLowerCase().split(".").filter(Boolean);
+  if (parts.length === 0) return "";
+  const last = parts[parts.length - 1];
+  if (last === "bak" && parts.length >= 2) {
+    return parts[parts.length - 2];
+  }
+  return last;
 }
 
 export class ViewerPane {
@@ -52,6 +58,12 @@ export class ViewerPane {
   private lastKnownModifiedMs: number | null = null;
   private rendering = false;
   private editDialogEl!: HTMLElement;
+  private editMode = false;
+  private editContentEl!: HTMLTextAreaElement;
+  private renderedScrollTop = 0;
+  private rawScrollTop = 0;
+  private editScrollTop = 0;
+  private editCursorPos = 0;
 
   constructor(el: HTMLElement, onAttach?: (attachment: ViewerAttachment) => void) {
     this.el = el;
@@ -72,6 +84,7 @@ export class ViewerPane {
           <button class="viewer__btn" id="vwr-attach-source" style="display:none">Attach Source</button>
           <button class="viewer__btn" id="vwr-reload">↺ Refresh</button>
           <button class="viewer__btn" id="vwr-raw" style="display:none">‹/› Raw</button>
+          <button class="viewer__btn" id="vwr-edit" style="display:none">✎ Edit</button>
         </div>
         <div class="viewer__body" id="vwr-body">
           <div class="viewer__empty">Open a file from the Explorer to preview it here.</div>
@@ -106,7 +119,8 @@ export class ViewerPane {
     this.el.querySelector("#vwr-attach-read")!.addEventListener("click", () => this.attachRead());
     this.el.querySelector("#vwr-attach-source")!.addEventListener("click", () => this.attachSource());
     this.el.querySelector("#vwr-reload")!.addEventListener("click", () => this.reload());
-    this.el.querySelector("#vwr-raw")!.addEventListener("click", () => this.toggleRaw());
+    this.el.querySelector("#vwr-raw")!.addEventListener("click", () => void this.toggleRaw());
+    this.el.querySelector("#vwr-edit")!.addEventListener("click", () => void this.toggleEditMode());
     this.el.querySelector("#vwr-md-zoom-out")!.addEventListener("click", () => this.adjustMdZoom(-1));
     this.el.querySelector("#vwr-md-zoom-in")!.addEventListener("click", () => this.adjustMdZoom(1));
     this.el.querySelector("#vwr-auto-refresh")!.addEventListener("click", () => this.toggleAutoRefresh());
@@ -127,7 +141,11 @@ export class ViewerPane {
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         this.hideSelectionMenu();
-        this.closeEditSelectionDialog();
+        // Keep edit dialog open so ESC won't kick user back to raw-only view.
+        const editVisible = this.editDialogEl?.style.display === "flex";
+        if (!editVisible) {
+          this.closeEditSelectionDialog();
+        }
       }
     });
   }
@@ -148,16 +166,152 @@ export class ViewerPane {
   private rawMode = false;
   private rawContent = "";
 
-  private toggleRaw(): void {
+  private captureCurrentPosition(): void {
+    if (this.editMode && this.editContentEl) {
+      this.editScrollTop = this.editContentEl.scrollTop;
+      this.editCursorPos = this.editContentEl.selectionStart ?? 0;
+      return;
+    }
+
+    if (this.rawMode) {
+      this.rawScrollTop = this.contentEl.scrollTop;
+      return;
+    }
+
+    this.renderedScrollTop = this.contentEl.scrollTop;
+  }
+
+  private restoreCurrentPosition(): void {
+    if (this.editMode && this.editContentEl) {
+      const pos = Math.max(0, Math.min(this.editCursorPos, this.editContentEl.value.length));
+      this.editContentEl.selectionStart = pos;
+      this.editContentEl.selectionEnd = pos;
+      this.editContentEl.scrollTop = this.editScrollTop;
+      return;
+    }
+
+    this.contentEl.scrollTop = this.rawMode ? this.rawScrollTop : this.renderedScrollTop;
+  }
+
+  private async toggleRaw(): Promise<void> {
+    this.captureCurrentPosition();
+    if (this.editMode) {
+      this.editMode = false;
+    }
     this.rawMode = !this.rawMode;
     const btn = this.el.querySelector<HTMLButtonElement>("#vwr-raw")!;
+    const editBtn = this.el.querySelector<HTMLButtonElement>("#vwr-edit")!;
     btn.textContent = this.rawMode ? "◉ Rendered" : "‹/› Raw";
+    if (editBtn) editBtn.textContent = "✎ Edit";
     this.syncMarkdownZoomVisibility(this.currentName());
     if (this.rawMode) {
       this.contentEl.innerHTML = `<pre class="viewer__raw">${escHtml(this.rawContent)}</pre>`;
+      this.restoreCurrentPosition();
     } else {
-      this.renderContent(this.rawContent, this.currentName());
+      await this.renderContent(this.rawContent, this.currentName());
+      this.restoreCurrentPosition();
     }
+  }
+
+  private async toggleEditMode(): Promise<void> {
+    if (!this.source || this.source.kind !== "file") {
+      return;
+    }
+
+    const currentExt = ext(this.currentName());
+    if (currentExt === "pdf") {
+      return;
+    }
+
+    this.captureCurrentPosition();
+    this.editMode = !this.editMode;
+    const editBtn = this.el.querySelector<HTMLButtonElement>("#vwr-edit")!;
+    const rawBtn = this.el.querySelector<HTMLButtonElement>("#vwr-raw")!;
+    
+    if (this.editMode) {
+      this.rawMode = false;
+      editBtn.textContent = "✏ Editing";
+      if (rawBtn) rawBtn.textContent = "‹/› Raw";
+      this.renderEditMode();
+      this.restoreCurrentPosition();
+    } else {
+      editBtn.textContent = "✎ Edit";
+      await this.renderContent(this.rawContent, this.currentName());
+      this.restoreCurrentPosition();
+    }
+  }
+
+  private renderEditMode(): void {
+    this.contentEl.innerHTML = `
+      <div class="viewer__edit-mode">
+        <div class="viewer__edit-mode-toolbar">
+          <div class="viewer__edit-mode-info">
+            <span class="viewer__edit-mode-label">Editing:</span>
+            <span class="viewer__edit-mode-path">${escHtml(this.source?.kind === "file" ? this.source.path : this.currentName())}</span>
+          </div>
+          <div class="viewer__edit-mode-actions">
+            <button class="viewer__btn" id="vwr-edit-mode-save">💾 Save</button>
+            <button class="viewer__btn" id="vwr-edit-mode-cancel">Cancel</button>
+          </div>
+        </div>
+        <textarea class="viewer__edit-mode-textarea" id="vwr-edit-mode-content"></textarea>
+        <div class="viewer__edit-mode-error" id="vwr-edit-mode-error"></div>
+      </div>
+    `;
+
+    this.editContentEl = this.contentEl.querySelector<HTMLTextAreaElement>("#vwr-edit-mode-content")!;
+    this.editContentEl.value = this.rawContent;
+    this.editContentEl.focus();
+
+    this.contentEl.querySelector("#vwr-edit-mode-save")!.addEventListener("click", () => void this.saveEditMode());
+    this.contentEl.querySelector("#vwr-edit-mode-cancel")!.addEventListener("click", () => this.cancelEditMode());
+
+    // Save on Ctrl+S
+    const saveHandler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void this.saveEditMode();
+      }
+    };
+    this.editContentEl.addEventListener("keydown", saveHandler);
+  }
+
+  private async saveEditMode(): Promise<void> {
+    if (!this.source || this.source.kind !== "file") return;
+
+    const errorEl = this.contentEl.querySelector<HTMLElement>("#vwr-edit-mode-error");
+    const newContent = this.editContentEl.value;
+
+    try {
+      // Create backup
+      const sourcePath = this.source.path;
+      const currentContent = await readFileContent(sourcePath);
+      await writeFileContentOverwrite(this.backupPathFor(sourcePath), currentContent);
+
+      // Save new content
+      await writeFileContentOverwrite(sourcePath, newContent);
+      
+      // Update state and exit edit mode
+      this.rawContent = newContent;
+      this.lastKnownModifiedMs = await getFileModifiedMs(sourcePath);
+      
+      this.editMode = false;
+      const editBtn = this.el.querySelector<HTMLButtonElement>("#vwr-edit")!;
+      if (editBtn) editBtn.textContent = "✎ Edit";
+      
+      await this.render();
+    } catch (err) {
+      if (errorEl) {
+        errorEl.textContent = `Error: ${String(err)}`;
+      }
+    }
+  }
+
+  private cancelEditMode(): void {
+    this.editMode = false;
+    const editBtn = this.el.querySelector<HTMLButtonElement>("#vwr-edit")!;
+    if (editBtn) editBtn.textContent = "✎ Edit";
+    this.renderContent(this.rawContent, this.currentName());
   }
 
   private currentName(): string {
@@ -192,19 +346,24 @@ export class ViewerPane {
 
       // Show raw button for text-based formats
       const rawBtn = this.el.querySelector<HTMLElement>("#vwr-raw")!;
+      const editBtn = this.el.querySelector<HTMLElement>("#vwr-edit")!;
       const attachReadBtn = this.el.querySelector<HTMLElement>("#vwr-attach-read")!;
       const attachSourceBtn = this.el.querySelector<HTMLElement>("#vwr-attach-source")!;
       attachReadBtn.style.display = "";
       attachSourceBtn.style.display = "";
       if (["md", "mmd", "drawio", "svg", "html", "txt", "xml"].includes(ext(name))) {
         rawBtn.style.display = "";
+        editBtn.style.display = "";
       } else {
         rawBtn.style.display = "none";
+        editBtn.style.display = "none";
       }
 
       this.rawMode = false;
+      this.editMode = false;
       const btn = this.el.querySelector<HTMLButtonElement>("#vwr-raw")!;
       if (btn) btn.textContent = "‹/› Raw";
+      if (editBtn) editBtn.textContent = "✎ Edit";
       this.syncMarkdownZoomVisibility(name);
 
       await this.renderContent(content, name, pdfBytes);
@@ -306,8 +465,9 @@ export class ViewerPane {
       const target = this.contentEl.querySelector(`#${id}`);
       if (target) {
         try {
-          const { svg } = await mermaid.render(`mmd-svg-${id}`, code);
-          target.innerHTML = this.sanitizeSvg(svg);
+          const normalizedCode = this.normalizeMermaidCode(code);
+          const { svg } = await mermaid.render(`mmd-svg-${id}`, normalizedCode);
+          target.innerHTML = this.prepareMermaidSvg(svg);
         } catch (err) {
           target.innerHTML = `<pre class="viewer__mermaid-error">Mermaid error:\n${escHtml(String(err))}</pre>`;
         }
@@ -333,7 +493,7 @@ export class ViewerPane {
   }
 
   private syncMarkdownZoomVisibility(name: string): void {
-    const isMarkdown = ["md", "markdown"].includes(ext(name)) && !this.rawMode;
+    const isMarkdown = ["md", "markdown"].includes(ext(name)) && !this.rawMode && !this.editMode;
     const outBtn = this.el.querySelector<HTMLElement>("#vwr-md-zoom-out");
     const inBtn = this.el.querySelector<HTMLElement>("#vwr-md-zoom-in");
     const label = this.el.querySelector<HTMLElement>("#vwr-md-zoom-label");
@@ -347,11 +507,32 @@ export class ViewerPane {
   private async renderMermaid(code: string): Promise<void> {
     const id = `mmd-standalone-${Date.now()}`;
     try {
-      const { svg } = await mermaid.render(id, code.trim());
-      this.contentEl.innerHTML = `<div class="viewer__mermaid-full">${this.sanitizeSvg(svg)}</div>`;
+      const normalizedCode = this.normalizeMermaidCode(code.trim());
+      const { svg } = await mermaid.render(id, normalizedCode);
+      this.contentEl.innerHTML = `<div class="viewer__mermaid-full">${this.prepareMermaidSvg(svg)}</div>`;
     } catch (err) {
       this.contentEl.innerHTML = `<pre class="viewer__error">Mermaid error:\n${escHtml(String(err))}</pre>`;
     }
+  }
+
+  private prepareMermaidSvg(svg: string): string {
+    // Mermaid output is trusted library output. Keep it intact to avoid
+    // stripping label-related attributes needed by WKWebView rendering.
+    return svg.replace(/<svg([^>]*?)>/, (match, attrs) => {
+      if (!attrs.includes("width=") && !attrs.includes("height=")) {
+        return `<svg${attrs} style="width: 100%; height: auto;">`;
+      }
+      return match;
+    });
+  }
+
+  private normalizeMermaidCode(code: string): string {
+    // Strip any per-diagram init directive and prepend a stable config.
+    // This avoids WKWebView issues when htmlLabels=true (foreignObject labels disappear).
+    const withoutInit = code.replace(/^\s*%%\{init:[\s\S]*?\}\s*%%\s*/m, "");
+    const forcedInit =
+      "%%{init: {'theme': 'dark', 'flowchart': {'htmlLabels': false, 'useMaxWidth': true, 'curve': 'basis'}, 'er': {'useMaxWidth': true}}}%%\n";
+    return `${forcedInit}${withoutInit}`;
   }
 
   private async renderPdf(content: string, _name: string, bytes?: Uint8Array): Promise<void> {
@@ -520,30 +701,6 @@ export class ViewerPane {
     this.contentEl.innerHTML = `<div class="viewer__svg-wrap">${clean}</div>`;
   }
 
-  /** Sanitize SVG for Mermaid diagrams while preserving style tags and text rendering */
-  private sanitizeSvg(svg: string): string {
-    // First pass: Allow SVG with style tags preserved
-    const sanitized = DOMPurify.sanitize(svg, {
-      USE_PROFILES: { svg: true },
-      ADD_TAGS: ["style", "tspan", "defs", "marker", "g", "text", "path", "line", "polyline", "polygon", "rect", "circle", "ellipse", "foreignObject"],
-      ADD_ATTR: ["marker-width", "marker-height", "marker-end", "marker-start", "marker-mid", "style", "class", "id", "viewBox", "preserveAspectRatio", "width", "height"],
-      KEEP_CONTENT: true,
-      FORCE_BODY: true,
-      RETURN_DOM: false,
-    });
-    // Ensure SVG has responsive sizing attributes
-    const enhanced = sanitized.replace(
-      /<svg([^>]*?)>/,
-      (match, attrs) => {
-        if (!attrs.includes('width=') && !attrs.includes('height=')) {
-          return `<svg${attrs} style="width: 100%; height: auto;">`;
-        }
-        return match;
-      }
-    );
-    return enhanced;
-  }
-
   private renderHtml(html: string): void {
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
@@ -649,6 +806,9 @@ export class ViewerPane {
     if (!selected) { this.hideSelectionMenu(); return; }
     this.hideSelectionMenu();
 
+    const resolvedSelection = this.resolveSelectionForEdit(selected) ?? selected;
+    this.selectedTextSnapshot = resolvedSelection;
+
     // Switch to raw mode
     if (!this.rawMode) {
       this.rawMode = true;
@@ -667,7 +827,7 @@ export class ViewerPane {
       m.replaceWith(m.textContent ?? "");
     });
 
-    const escapedSearch = escHtml(selected);
+    const escapedSearch = escHtml(resolvedSelection);
     const idx = pre.innerHTML.indexOf(escapedSearch);
     if (idx !== -1) {
       pre.innerHTML =
@@ -677,6 +837,9 @@ export class ViewerPane {
       const mark = pre.querySelector(".viewer__source-mark");
       if (mark) mark.scrollIntoView({ block: "center", behavior: "smooth" });
     }
+
+    // Continue directly to safe edit flow for the same selection.
+    this.openEditSelectionDialog();
   }
 
   private openEditSelectionDialog(): void {
@@ -697,23 +860,20 @@ export class ViewerPane {
       return;
     }
 
-    // In reading (rendered) mode: check if selected text exists verbatim in source
-    if (!this.rawMode) {
-      const occurrences = this.countOccurrences(this.rawContent, selected);
-      if (occurrences === 0) {
-        this.showContextHint("Teks tidak ditemukan persis di source (mungkin transformasi rendering). Gunakan \"View in Source / Raw\" lalu pilih dari Raw mode.");
-        return;
-      }
+    const resolvedSelection = this.resolveSelectionForEdit(selected);
+    if (!resolvedSelection) {
+      this.showContextHint("Teks dari mode read/view tidak bisa dipetakan unik ke source. Klik View in Source lalu pilih teks yang lebih spesifik.");
+      return;
     }
 
-    this.selectedTextSnapshot = selected;
+    this.selectedTextSnapshot = resolvedSelection;
     const note = this.el.querySelector<HTMLElement>("#vwr-edit-note");
     const original = this.el.querySelector<HTMLTextAreaElement>("#vwr-edit-original");
     const replacement = this.el.querySelector<HTMLTextAreaElement>("#vwr-edit-replacement");
     const error = this.el.querySelector<HTMLElement>("#vwr-edit-error");
     if (note) note.textContent = this.source.path;
-    if (original) original.value = selected;
-    if (replacement) replacement.value = selected;
+    if (original) original.value = resolvedSelection;
+    if (replacement) replacement.value = resolvedSelection;
     if (error) error.textContent = "";
 
     this.editDialogEl.style.display = "flex";
@@ -738,6 +898,58 @@ export class ViewerPane {
       idx = found + needle.length;
     }
     return count;
+  }
+
+  private escapeRegExp(text: string): string {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  private normalizeWhitespace(text: string): string {
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  private findUniqueWhitespaceMatch(sourceText: string, selectedText: string): string | null {
+    const normalizedNeedle = this.normalizeWhitespace(selectedText);
+    if (!normalizedNeedle) return null;
+
+    const tokens = normalizedNeedle.split(" ").filter(Boolean).map((t) => this.escapeRegExp(t));
+    if (tokens.length === 0) return null;
+
+    const pattern = tokens.join("\\s+");
+    const re = new RegExp(pattern, "g");
+
+    let matches = 0;
+    let matchedText = "";
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sourceText)) !== null) {
+      matches += 1;
+      matchedText = m[0];
+      if (matches > 1) return null;
+    }
+
+    return matches === 1 ? matchedText : null;
+  }
+
+  private resolveSelectionForEdit(selectedText: string): string | null {
+    const selection = selectedText.trim();
+    if (!selection) return null;
+
+    const sourceText = this.rawContent;
+    if (!sourceText) return selection;
+
+    const exactOccurrences = this.countOccurrences(sourceText, selection);
+    if (exactOccurrences === 1) return selection;
+    if (exactOccurrences > 1) return null;
+
+    return this.findUniqueWhitespaceMatch(sourceText, selection);
+  }
+
+  private backupPathFor(sourcePath: string): string {
+    const idx = sourcePath.lastIndexOf("/");
+    if (idx === -1) return `.${sourcePath}.bak`;
+    const dir = sourcePath.slice(0, idx);
+    const file = sourcePath.slice(idx + 1);
+    return `${dir}/.${file}.bak`;
   }
 
   private async applySelectionEdit(): Promise<void> {
@@ -779,7 +991,7 @@ export class ViewerPane {
 
     const idx = sourceText.indexOf(selected);
     const next = `${sourceText.slice(0, idx)}${replacement}${sourceText.slice(idx + selected.length)}`;
-    await writeFileContentOverwrite(`${sourcePath}.bak`, sourceText);
+    await writeFileContentOverwrite(this.backupPathFor(sourcePath), sourceText);
     await writeFileContentOverwrite(sourcePath, next);
     this.closeEditSelectionDialog();
     await this.render();

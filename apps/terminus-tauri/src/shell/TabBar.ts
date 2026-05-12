@@ -7,7 +7,8 @@ export interface TabBarCallbacks {
   onNew: () => void;
   onNewViewer: () => void;
   onNewBrowser: (url?: string) => void;
-  onToggleInspector: () => void;
+  onToggleLeftSidebar: () => void;
+  onToggleRightSidebar: () => void;
   onOpenProject: () => void;
   onClose: (id: string) => void;
 }
@@ -27,7 +28,7 @@ export class TabBar {
     this.callbacks = callbacks;
   }
 
-  setTabs(tabs: Tab[], activeId: string): void {
+  setTabs(tabs: Tab[], activeId: string, uiState?: { leftVisible: boolean; rightVisible: boolean }): void {
     this.el.innerHTML = `
       <div class="tabbar">
         <div class="tabbar__tabs" id="tabbar-tabs"></div>
@@ -36,7 +37,8 @@ export class TabBar {
           <button class="tabbar__action" id="tb-new-viewer"  title="New Viewer">${icon("file")}</button>
           <button class="tabbar__action" id="tb-new-browser" title="New Browser">${icon("globe")}</button>
           <div class="tabbar__sep"></div>
-          <button class="tabbar__action" id="tb-tree" title="Toggle file tree">${icon("tree")}</button>
+          <button class="tabbar__action ${uiState?.leftVisible === false ? "tabbar__action--off" : ""}" id="tb-left" title="Toggle left sidebar">${icon("folder")}</button>
+          <button class="tabbar__action ${uiState?.rightVisible === false ? "tabbar__action--off" : ""}" id="tb-right" title="Toggle right sidebar">${icon("tree")}</button>
         </div>
       </div>
     `;
@@ -76,7 +78,8 @@ export class TabBar {
       const url = prompt("Enter URL (e.g. http://localhost:3000):")?.trim();
       this.callbacks.onNewBrowser(url || "");
     });
-    this.el.querySelector("#tb-tree")!.addEventListener("click", () => this.callbacks.onToggleInspector());
+    this.el.querySelector("#tb-left")!.addEventListener("click", () => this.callbacks.onToggleLeftSidebar());
+    this.el.querySelector("#tb-right")!.addEventListener("click", () => this.callbacks.onToggleRightSidebar());
   }
 }
 
