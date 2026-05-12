@@ -2,11 +2,12 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import mermaid from "mermaid";
 import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { getFileModifiedMs, readFileBytes, readFileContent, writeFileContentOverwrite } from "../ipc/bridge";
 import "./viewer.css";
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker — use local bundled worker (no CDN/internet required)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 mermaid.initialize({
   startOnLoad: false,
@@ -74,7 +75,9 @@ export class ViewerPane {
         </div>
         <div class="viewer__context-menu" id="vwr-context-menu" style="display:none">
           <button class="viewer__context-item" id="vwr-add-selection">Add to CLI</button>
+          <button class="viewer__context-item" id="vwr-view-source">View in Source / Raw</button>
           <button class="viewer__context-item" id="vwr-edit-selection">Edit Selection (Safe)</button>
+          <div class="viewer__context-hint" id="vwr-context-hint"></div>
         </div>
         <div class="viewer__edit-dialog" id="vwr-edit-dialog" style="display:none">
           <div class="viewer__edit-card" role="dialog" aria-modal="true" aria-label="Edit selection">
@@ -105,12 +108,19 @@ export class ViewerPane {
     this.el.querySelector("#vwr-md-zoom-in")!.addEventListener("click", () => this.adjustMdZoom(1));
     this.el.querySelector("#vwr-auto-refresh")!.addEventListener("click", () => this.toggleAutoRefresh());
     this.el.querySelector("#vwr-add-selection")!.addEventListener("click", () => this.attachSelection());
+    this.el.querySelector("#vwr-view-source")!.addEventListener("click", () => this.viewInSource());
     this.el.querySelector("#vwr-edit-selection")!.addEventListener("click", () => this.openEditSelectionDialog());
     this.el.querySelector("#vwr-edit-cancel")!.addEventListener("click", () => this.closeEditSelectionDialog());
     this.el.querySelector("#vwr-edit-apply")!.addEventListener("click", () => void this.applySelectionEdit());
 
+    // Prevent context-menu clicks from bubbling to document (which would hide menu before handler runs)
+    this.contextMenuEl.addEventListener("mousedown", (e) => e.stopPropagation());
     this.contentEl.addEventListener("contextmenu", (e) => this.openSelectionMenu(e));
-    document.addEventListener("click", () => this.hideSelectionMenu());
+    document.addEventListener("mousedown", (e) => {
+      if (!this.contextMenuEl.contains(e.target as Node)) {
+        this.hideSelectionMenu();
+      }
+    });
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         this.hideSelectionMenu();
@@ -613,6 +623,49 @@ export class ViewerPane {
     this.hideSelectionMenu();
   }
 
+  private showContextHint(msg: string): void {
+    const hint = this.el.querySelector<HTMLElement>("#vwr-context-hint");
+    if (hint) {
+      hint.textContent = msg;
+      hint.style.display = "block";
+    }
+  }
+
+  private viewInSource(): void {
+    const selected = this.selectedTextSnapshot || this.getSelectedText();
+    if (!selected) { this.hideSelectionMenu(); return; }
+    this.hideSelectionMenu();
+
+    // Switch to raw mode
+    if (!this.rawMode) {
+      this.rawMode = true;
+      const btn = this.el.querySelector<HTMLButtonElement>("#vwr-raw")!;
+      if (btn) btn.textContent = "◉ Rendered";
+      this.syncMarkdownZoomVisibility(this.currentName());
+      this.contentEl.innerHTML = `<pre class="viewer__raw">${escHtml(this.rawContent)}</pre>`;
+    }
+
+    // Highlight first occurrence in raw pre
+    const pre = this.contentEl.querySelector<HTMLElement>(".viewer__raw");
+    if (!pre) return;
+
+    // Remove any existing marks first
+    pre.querySelectorAll(".viewer__source-mark").forEach((m) => {
+      m.replaceWith(m.textContent ?? "");
+    });
+
+    const escapedSearch = escHtml(selected);
+    const idx = pre.innerHTML.indexOf(escapedSearch);
+    if (idx !== -1) {
+      pre.innerHTML =
+        pre.innerHTML.slice(0, idx) +
+        `<mark class="viewer__source-mark">${escapedSearch}</mark>` +
+        pre.innerHTML.slice(idx + escapedSearch.length);
+      const mark = pre.querySelector(".viewer__source-mark");
+      if (mark) mark.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }
+
   private openEditSelectionDialog(): void {
     const selected = this.selectedTextSnapshot || this.getSelectedText();
     if (!selected) {
@@ -621,22 +674,23 @@ export class ViewerPane {
     }
 
     if (!this.source || this.source.kind !== "file") {
-      this.hideSelectionMenu();
-      window.alert("Edit selection hanya tersedia untuk file lokal.");
-      return;
-    }
-
-    if (!this.rawMode) {
-      this.hideSelectionMenu();
-      window.alert("Untuk edit aman tanpa mismatch render/source, aktifkan mode Raw lalu pilih teks dari source.");
+      this.showContextHint("Edit hanya untuk file lokal.");
       return;
     }
 
     const currentExt = ext(this.currentName());
     if (currentExt === "pdf") {
-      this.hideSelectionMenu();
-      window.alert("PDF tidak bisa diedit dari mode view. Gunakan editor source file.");
+      this.showContextHint("PDF tidak bisa diedit dari viewer.");
       return;
+    }
+
+    // In reading (rendered) mode: check if selected text exists verbatim in source
+    if (!this.rawMode) {
+      const occurrences = this.countOccurrences(this.rawContent, selected);
+      if (occurrences === 0) {
+        this.showContextHint("Teks tidak ditemukan persis di source (mungkin transformasi rendering). Gunakan \"View in Source / Raw\" lalu pilih dari Raw mode.");
+        return;
+      }
     }
 
     this.selectedTextSnapshot = selected;
@@ -675,6 +729,10 @@ export class ViewerPane {
 
   private async applySelectionEdit(): Promise<void> {
     if (!this.source || this.source.kind !== "file") return;
+    // Re-read raw content from file if not in raw mode (reading mode edit)
+    if (!this.rawMode) {
+      this.rawContent = await readFileContent(this.source.path);
+    }
 
     const sourcePath = this.source.path;
     const selected = this.selectedTextSnapshot;
