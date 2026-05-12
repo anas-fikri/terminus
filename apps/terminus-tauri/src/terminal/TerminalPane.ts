@@ -133,15 +133,18 @@ export class TerminalPane {
       ptyWrite(this.sessionId, data).catch(() => {});
     });
     
-    // Better Shift+Enter handling via keydown event (for multiline input)
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.shiftKey || e.altKey || e.metaKey) && (e.key === 'Enter' || e.code === 'Enter')) {
-        e.preventDefault();
-        ptyWrite(this.sessionId, '\n').catch(() => {});  // Insert newline without executing
+    // Shift+Enter for multiline input (intercept at xterm level)
+    this.term.attachCustomKeyEventHandler((e) => {
+      const isShiftEnter = e.shiftKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
+      const isAltEnter = e.altKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
+      const isMetaEnter = e.metaKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
+      
+      if (isShiftEnter || isAltEnter || isMetaEnter) {
+        ptyWrite(this.sessionId, '\n').catch(() => {});
+        return false; // Return false to prevent xterm default handling
       }
-    };
-    this.el.addEventListener('keydown', handleKeyDown);
-    this.unlisten.push(() => this.el.removeEventListener('keydown', handleKeyDown));
+      return true; // Return true to let xterm handle the key normally
+    });
     // Settings panel controls
     settingsBtn.addEventListener("click", () => {
       settingsPanel.classList.toggle("pty-settings-panel--open");
