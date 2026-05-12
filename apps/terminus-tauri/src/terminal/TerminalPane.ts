@@ -24,30 +24,32 @@ function isDark(): boolean {
 
 function buildTheme(customBg?: string, customFg?: string) {
   if (isDark()) {
+    // Pastel dark theme - soft gray background with good contrast
     return {
-      background: customBg ?? "#0d1117",
-      foreground: customFg ?? "#e6edf3",
-      cursor: "#58a6ff",
-      selectionBackground: "rgba(88,166,255,0.25)",
-      black: "#0d1117", red: "#f85149", green: "#3fb950",
-      yellow: "#d29922", blue: "#58a6ff", magenta: "#a371f7",
-      cyan: "#39d3c3", white: "#b1bac4",
-      brightBlack: "#6e7681", brightRed: "#ff7b72", brightGreen: "#56d364",
-      brightYellow: "#e3b341", brightBlue: "#79c0ff", brightMagenta: "#d2a8ff",
-      brightCyan: "#56d4dd", brightWhite: "#f0f6fc",
+      background: customBg ?? "#1a1a1e",  // Soft dark gray pastel
+      foreground: customFg ?? "#e8e8e8",  // Soft white
+      cursor: "#a8d8ff",
+      selectionBackground: "rgba(168,216,255,0.2)",
+      black: "#3a3a3e", red: "#ff9999", green: "#99ff99",
+      yellow: "#ffdd99", blue: "#99ccff", magenta: "#dd99ff",
+      cyan: "#99ffdd", white: "#d0d0d0",
+      brightBlack: "#666666", brightRed: "#ffb3b3", brightGreen: "#b3ffb3",
+      brightYellow: "#ffffb3", brightBlue: "#b3ddff", brightMagenta: "#ffb3ff",
+      brightCyan: "#b3ffff", brightWhite: "#f0f0f0",
     };
   } else {
+    // Pastel light theme - soft beige/cream background
     return {
-      background: customBg ?? "#f6f8fa",
-      foreground: customFg ?? "#1f2328",
-      cursor: "#0969da",
-      selectionBackground: "rgba(9,105,218,0.15)",
-      black: "#24292f", red: "#cf222e", green: "#116329",
-      yellow: "#4d2d00", blue: "#0969da", magenta: "#8250df",
-      cyan: "#1b7c83", white: "#6e7781",
-      brightBlack: "#57606a", brightRed: "#a40e26", brightGreen: "#1a7f37",
-      brightYellow: "#633c01", brightBlue: "#218bff", brightMagenta: "#a475f9",
-      brightCyan: "#3192aa", brightWhite: "#32383f",
+      background: customBg ?? "#fef9f3",  // Warm cream pastel
+      foreground: customFg ?? "#333333",  // Soft dark gray
+      cursor: "#0066cc",
+      selectionBackground: "rgba(51,102,204,0.12)",
+      black: "#555555", red: "#cc6666", green: "#66aa66",
+      yellow: "#ccaa44", blue: "#6688dd", magenta: "#aa66cc",
+      cyan: "#66aaaa", white: "#cccccc",
+      brightBlack: "#888888", brightRed: "#ff9999", brightGreen: "#99dd99",
+      brightYellow: "#ffdd77", brightBlue: "#99bbff", brightMagenta: "#dd99ff",
+      brightCyan: "#99dddd", brightWhite: "#ffffff",
     };
   }
 }
