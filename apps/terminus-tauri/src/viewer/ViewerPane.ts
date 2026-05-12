@@ -266,12 +266,47 @@ export class ViewerPane {
     this.contentEl.querySelector("#vwr-edit-mode-save")!.addEventListener("click", () => void this.saveEditMode());
     this.contentEl.querySelector("#vwr-edit-mode-cancel")!.addEventListener("click", () => this.cancelEditMode());
 
-    // Save on Ctrl+S
+    // Save on Ctrl+S and support Tab/Shift+Tab indentation inside textarea.
     const saveHandler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         void this.saveEditMode();
+        return;
       }
+
+      if (e.key !== "Tab") {
+        return;
+      }
+
+      e.preventDefault();
+      const textarea = this.editContentEl;
+      const start = textarea.selectionStart ?? 0;
+      const end = textarea.selectionEnd ?? 0;
+      const value = textarea.value;
+
+      if (!e.shiftKey) {
+        if (start === end) {
+          textarea.value = `${value.slice(0, start)}\t${value.slice(end)}`;
+          textarea.selectionStart = start + 1;
+          textarea.selectionEnd = start + 1;
+          return;
+        }
+
+        const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+        const selectedBlock = value.slice(lineStart, end);
+        const indentedBlock = selectedBlock.replace(/^/gm, "\t");
+        textarea.value = `${value.slice(0, lineStart)}${indentedBlock}${value.slice(end)}`;
+        textarea.selectionStart = start + 1;
+        textarea.selectionEnd = end + (indentedBlock.length - selectedBlock.length);
+        return;
+      }
+
+      const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+      const selectedBlock = value.slice(lineStart, end);
+      const outdentedBlock = selectedBlock.replace(/^\t/gm, "").replace(/^ {1,2}/gm, "");
+      textarea.value = `${value.slice(0, lineStart)}${outdentedBlock}${value.slice(end)}`;
+      textarea.selectionStart = Math.max(lineStart, start - 1);
+      textarea.selectionEnd = Math.max(textarea.selectionStart, end - (selectedBlock.length - outdentedBlock.length));
     };
     this.editContentEl.addEventListener("keydown", saveHandler);
   }
