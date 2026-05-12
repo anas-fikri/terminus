@@ -79,18 +79,19 @@ export class GitPanel {
             <span class="gitpanel__legend-badge gitpanel__legend-badge--unstaged">&#9646;</span> Unstaged &nbsp;
             <span class="gitpanel__legend-badge gitpanel__legend-badge--untracked">&#9646;</span> Untracked
           </div>
+          <div class="gitpanel__content">
+            <div class="gitpanel__section-title">Staged</div>
+            <ul class="gitpanel__list gitpanel__list--section">${stagedList}</ul>
 
-          <div class="gitpanel__section-title">Staged</div>
-          <ul class="gitpanel__list gitpanel__list--section">${stagedList}</ul>
+            <div class="gitpanel__section-title">Unstaged</div>
+            <ul class="gitpanel__list gitpanel__list--section">${unstagedList}</ul>
 
-          <div class="gitpanel__section-title">Unstaged</div>
-          <ul class="gitpanel__list gitpanel__list--section">${unstagedList}</ul>
+            <div class="gitpanel__section-title">Untracked</div>
+            <ul class="gitpanel__list gitpanel__list--section">${untrackedList}</ul>
 
-          <div class="gitpanel__section-title">Untracked</div>
-          <ul class="gitpanel__list gitpanel__list--section">${untrackedList}</ul>
-
-          <div class="gitpanel__section-title">Remotes</div>
-          <ul class="gitpanel__list gitpanel__list--compact">${remotes || `<li class="gitpanel__item gitpanel__item--clean">No remotes configured</li>`}</ul>
+            <div class="gitpanel__section-title">Remotes</div>
+            <ul class="gitpanel__list gitpanel__list--compact">${remotes || `<li class="gitpanel__item gitpanel__item--clean">No remotes configured</li>`}</ul>
+          </div>
           <div class="gitpanel__footer">
             <button class="gitpanel__refresh" id="git-refresh">Refresh</button>
           </div>

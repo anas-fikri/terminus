@@ -134,6 +134,7 @@ export class ActivityPanel {
       return `
         <div class="activity-panel__item">
           <div class="activity-panel__item-meta">
+            <span class="activity-panel__item-prefix">&gt;</span>
             <span class="activity-panel__badge activity-panel__badge--skill">${escHtml(snap.skill)}</span>
             <span class="activity-panel__badge activity-panel__badge--tool">${escHtml(snap.tool)}</span>
             <span class="activity-panel__item-ws" title="${escHtml(snap.workspace)}">${escHtml(ws)}</span>

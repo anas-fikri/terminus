@@ -55,23 +55,29 @@
   color: var(--color-text-muted);
 }
 
+.gitpanel__content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 4px;
+}
+
 .gitpanel__list {
   margin: 0;
   padding: 8px 10px;
   list-style: none;
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
+  overflow: visible;
+  flex: 0;
 }
 
 .gitpanel__list--section {
   flex: 0;
-  max-height: 120px;
+  max-height: none;
 }
 
 .gitpanel__list--compact {
   flex: 0;
-  max-height: 120px;
+  max-height: none;
   border-top: 1px solid var(--color-border);
 }
 
@@ -117,6 +123,8 @@
 .gitpanel__footer {
   border-top: 1px solid var(--color-border);
   padding: 8px;
+  background: var(--color-bg-surface);
+  flex-shrink: 0;
 }
 
 .gitpanel__refresh {
