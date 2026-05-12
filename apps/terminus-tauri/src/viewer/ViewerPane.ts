@@ -1,27 +1,44 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import mermaid from "mermaid";
-import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { getFileModifiedMs, readFileBytes, readFileContent, writeFileContentOverwrite } from "../ipc/bridge";
 import "./viewer.css";
 
-// Set up PDF.js worker — use local bundled worker (no CDN/internet required)
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+let mermaidPromise: Promise<any> | null = null;
+let pdfjsPromise: Promise<any> | null = null;
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: "dark",
-  securityLevel: "loose",
-  fontFamily: "system-ui, -apple-system, sans-serif",
-  flowchart: {
-    useMaxWidth: true,
-    htmlLabels: false,
-    curve: "basis",
-  },
-  er: { useMaxWidth: true },
-  wrap: true,
-});
+async function loadMermaid(): Promise<any> {
+  if (!mermaidPromise) {
+    mermaidPromise = import("mermaid").then((mod) => {
+      const mermaid = mod.default;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "dark",
+        securityLevel: "loose",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: false,
+          curve: "basis",
+        },
+        er: { useMaxWidth: true },
+        wrap: true,
+      });
+      return mermaid;
+    });
+  }
+  return mermaidPromise;
+}
+
+async function loadPdfjs(): Promise<any> {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import("pdfjs-dist").then((mod) => {
+      mod.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+      return mod;
+    });
+  }
+  return pdfjsPromise;
+}
 
 export type ViewerSource =
   | { kind: "file"; path: string }
@@ -724,6 +741,11 @@ export class ViewerPane {
     this.contentEl.innerHTML = `<div class="viewer__md" style="--viewer-md-zoom:${this.mdZoom / 100}">${clean}</div>`;
 
     // Render mermaid blocks
+    if (mermaidBlocks.length === 0) {
+      return;
+    }
+
+    const mermaid = await loadMermaid();
     for (const { id, code } of mermaidBlocks) {
       const target = this.contentEl.querySelector(`#${id}`);
       if (target) {
@@ -770,6 +792,7 @@ export class ViewerPane {
   private async renderMermaid(code: string): Promise<void> {
     const id = `mmd-standalone-${Date.now()}`;
     try {
+      const mermaid = await loadMermaid();
       const normalizedCode = this.normalizeMermaidCode(code.trim());
       const { svg } = await mermaid.render(id, normalizedCode);
       this.contentEl.innerHTML = `<div class="viewer__mermaid-full">${this.prepareMermaidSvg(svg)}</div>`;
@@ -800,6 +823,7 @@ export class ViewerPane {
 
   private async renderPdf(content: string, _name: string, bytes?: Uint8Array): Promise<void> {
     try {
+      const pdfjsLib = await loadPdfjs();
       let pdfData = bytes;
       if (!pdfData) {
         // Fallback for content-based source where PDF is provided as base64 string.
