@@ -222,16 +222,20 @@ export class TerminalPane {
         return false;
       }
 
-      // Handle Backspace
-      if ((e.key === 'Backspace' || e.code === 'Backspace') && e.type === 'keydown') {
-        ptyWrite(this.sessionId, '\x7f').catch(() => {}); // ASCII DEL
-        return false;
+
+      // Handle Backspace/Delete on any key event type
+      if ((e.key === 'Backspace' || e.code === 'Backspace')) {
+        if (e.type === 'keydown') {
+          ptyWrite(this.sessionId, '\x7f').catch(() => {}); // ASCII DEL
+        }
+        return false; // Block ALL backspace events from xterm
       }
 
-      // Handle Delete
-      if ((e.key === 'Delete' || e.code === 'Delete') && e.type === 'keydown') {
-        ptyWrite(this.sessionId, '\x1b[3~').catch(() => {}); // VT100 Delete
-        return false;
+      if ((e.key === 'Delete' || e.code === 'Delete')) {
+        if (e.type === 'keydown') {
+          ptyWrite(this.sessionId, '\x1b[3~').catch(() => {}); // VT100 Delete
+        }
+        return false; // Block ALL delete events from xterm
       }
 
       return true; // Let xterm handle other keys
