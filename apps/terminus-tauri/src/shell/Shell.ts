@@ -323,12 +323,25 @@ export class Shell {
 
     // Notify terminal pane to re-fit now that it's visible
     const active = this.panes.get(id);
+    const tab = this.tabs.find((t) => t.id === id);
     if (active?.type === "session") {
       active.pane.show();
-      const tab = this.tabs.find((t) => t.id === id);
       if (tab?.initialCommand) {
         active.pane.runCommand(tab.initialCommand);
         tab.initialCommand = undefined;
+      }
+    }
+
+    // Sync left panel state to match the active tab's project/workspace
+    if (tab) {
+      const projectPath = tab.projectPath ?? (tab.workspace !== "." ? tab.workspace : null);
+      if (projectPath) {
+        this.projectsPanel.setActive(projectPath);
+        this.statusBar.setWorkspace(projectPath);
+        this.explorer.load(projectPath);
+        this.gitPanel.setWorkspace(projectPath);
+        void this.gitPanel.load();
+        this.extensionsPanel.setWorkspace(projectPath);
       }
     }
 
