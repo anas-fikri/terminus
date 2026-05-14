@@ -215,12 +215,26 @@ export class TerminalPane {
       const isShiftEnter = e.shiftKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
       const isAltEnter = e.altKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
       const isMetaEnter = e.metaKey && (e.key === 'Enter' || e.code === 'Enter') && e.type === 'keydown';
-      
+
+      // Handle Shift/Alt/Meta+Enter for multiline
       if (isShiftEnter || isAltEnter || isMetaEnter) {
         ptyWrite(this.sessionId, '\n').catch(() => {});
-        return false; // Return false to prevent xterm default handling
+        return false;
       }
-      return true; // Return true to let xterm handle the key normally
+
+      // Handle Backspace
+      if ((e.key === 'Backspace' || e.code === 'Backspace') && e.type === 'keydown') {
+        ptyWrite(this.sessionId, '\x7f').catch(() => {}); // ASCII DEL
+        return false;
+      }
+
+      // Handle Delete
+      if ((e.key === 'Delete' || e.code === 'Delete') && e.type === 'keydown') {
+        ptyWrite(this.sessionId, '\x1b[3~').catch(() => {}); // VT100 Delete
+        return false;
+      }
+
+      return true; // Let xterm handle other keys
     });
     // Settings panel controls
     settingsBtn.addEventListener("click", () => {
